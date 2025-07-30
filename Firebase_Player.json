@@ -1,0 +1,59 @@
+{
+  "players": {
+    "John_Doe": {
+      "web_url": "https://example.com/player/john_doe_profile",
+      "name": "John Doe",
+      "number": "25",
+      "team": "Guardians",
+      "position": "Pitcher",
+      "batting_hand": "Right",
+      "height": "185cm / 85kg",
+      "birthday": "1995-03-15",
+      "first_game": "2018-04-01",
+      "education": "National Sports University",
+      "birthplace": "Taipei, Taiwan",
+      "birthname": null,
+      "draft_position": "1st Round, 3rd Pick",
+      "pitch_record": [
+        ["2023", "10", "5", "3", "70.0", "60", "20", "5", "50", "2.57"],
+        ["2024", "15", "8", "4", "100.0", "80", "30", "8", "75", "2.70"],
+        ["TOTAL", "50", "25", "10", "300.0", "250", "80", "20", "200", "2.65"]
+      ],
+      "defensive_performance": [
+        ["2023", "20", "0", "0", "1.000"],
+        ["2024", "25", "1", "0", "0.990"],
+        ["TOTAL", "100", "2", "1", "0.995"]
+      ],
+      "batting_result": [
+        ["中信兄弟", "10", "2", "0.200"],
+        ["富邦悍將", "8", "1", "0.125"],
+        ["統一7-ELEVEn獅", "12", "3", "0.250"]
+      ]
+    },
+    "Jane_Smith": {
+      "web_url": "https://example.com/player/jane_smith_profile",
+      "name": "Jane Smith",
+      "number": "12",
+      "team": "U-Lions",
+      "position": "Outfielder",
+      "batting_hand": "Left",
+      "height": "170cm / 60kg",
+      "birthday": "1998-07-20",
+      "first_game": "2021-03-25",
+      "education": "University of Sports Science",
+      "birthplace": "Kaohsiung, Taiwan",
+      "birthname": "Jane Huang",
+      "draft_position": "2nd Round, 5th Pick",
+      "pitch_record": [],
+      "defensive_performance": [
+        ["2023", "30", "2", "0", "0.995"],
+        ["2024", "35", "3", "0", "0.990"],
+        ["TOTAL", "150", "10", "1", "0.993"]
+      ],
+      "batting_result": [
+        ["樂天桃猿", "15", "5", "0.333"],
+        ["中信兄弟", "10", "3", "0.300"]
+      ]
+    }
+  }
+}
