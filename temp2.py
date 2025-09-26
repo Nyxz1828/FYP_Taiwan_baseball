@@ -5,7 +5,6 @@ import os
 
 # === Path to your XML file ===
 xml_path = r"E:\\Code\\FYP\\scraped_data_2025_07_14\\www_cpbl_com_tw_.xml"
-remove_words = ['standing','2025 上半季', '2025 下半季', 'Catogory', "球隊", "排名", "投手TOP5", "打擊TOP5", "更多資訊", "投手", "打擊", "防禦率", "勝投", "救援成功", "中繼成功", "奪三振", "打擊率", "安打", "全壘打", "打點", "盜壘", '出賽數', '勝-敗-和', '勝率', '勝差', '連勝/連敗', 'pitching leaders', 'batting leaders', 'news', '最新消息']
 
 # === Load XML ===
 tree = ET.parse(xml_path)
@@ -24,8 +23,6 @@ def standing_search(lines):
     end = lines.index("pitching leaders")
     for i in range(start, end):
         line = lines[i].strip()
-        if line in remove_words:
-            continue
         if line == '排名':
             if row: result.append(row)
             row = ['Catogory']
@@ -45,9 +42,6 @@ def pitching_leaders_search(lines):
     categories = ['防禦率', '勝投', '救援成功', '中繼成功', '奪三振']
     for i in range(start, end):
         line = lines[i].strip()
-        if line in remove_words:
-            continue
-        
         if line in categories:
             if row: result.append(row)
             result.append(['投手TOP5', line])
@@ -72,8 +66,6 @@ def batting_leaders_search(lines):
     categories = ['打擊率', '安打', '全壘打', '打點', '盜壘']
     for i in range(start, end):
         line = lines[i].strip()
-        if line in remove_words:
-            continue
         if line in categories:
             if row: result.append(row)
             result.append(['打擊TOP5', line])
@@ -111,3 +103,4 @@ with open(output_file, "w", encoding="utf-8") as f:
     json.dump(output_data, f, ensure_ascii=False, indent=2)
 
 print("✅ JSON written to:", output_file)
+    
