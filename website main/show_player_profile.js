@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initTabs();
   initSeasonPanel();
   initGamesPanel();
-  initCareerPanel();
+  //initCareerPanel();
   initCareerTimeline();
   initNewsSocial();
   initFooter();
@@ -273,6 +273,22 @@ function buildSeasons(player) {
   });
   initStatsOverview(seasons[seasons.length-1].AVG, seasons[seasons.length-1].HR, seasons[seasons.length-1].RBI, seasons[seasons.length-1].OBP, seasons[seasons.length-1].ERA, seasons[seasons.length-1].K, seasons[seasons.length-1].W);
 
+  try {
+    initCareerPanel(
+      seasons.map(s => s.year),  // ["2021","2022",...]
+      seasons.map(s => s.AVG),   // [0.312, 0.298, ...]
+      seasons.map(s => s.HR),    // [20, 22, ...]
+      seasons.map(s => s.RBI),   // [85, 78, ...]
+      seasons.map(s => s.OBP),   // [0.385, 0.365, ...]
+      seasons.map(s => s.ERA),   // [3.12, 3.45, ...]
+      seasons.map(s => s.K),     // [152, 143, ...]
+      seasons.map(s => s.W)      // [12, 11, ...]
+    );
+
+  } catch (error) {
+    console.error('Error initializing career panel: i kinda fked up', error);
+  }
+  console.log("⚡ Seasons years:", seasons.map(s => s.year).join(", "));
   return seasons;
 }
 
@@ -437,61 +453,80 @@ async function initSeasonPanel() {
     }
   }
 
-  function initCareerPanel() {
-    const ctx = qs('#careerChart');
-    const totalsEl = qs('#careerTotals');
-    const milestonesEl = qs('#milestones');
-    if (!ctx) return;
-    const seasons = ['2021','2022','2023','2024','2025'];
-    new Chart(ctx, {
-      type: 'radar',
-      data: {
-        labels: ['AVG','HR','RBI','OBP','ERA','K','W'],
-        datasets: seasons.map((y, idx) => ({
-          label: y,
-          data: [rand(0.25, .33,3), randInt(10,30), randInt(40,100), rand(0.30,.42,2), rand(2.2,4.1,2), randInt(80,190), randInt(5,18)],
-          borderColor: `hsl(${(idx*60)%360} 70% 45%)`,
-          backgroundColor: `hsl(${(idx*60)%360} 70% 45% / .15)`
-        }))
-      },
-      options: { responsive: true, scales: { r: { ticks: { display: false } } }, plugins: { legend: { position: 'bottom' } } }
-    });
+function initCareerPanel(seasonyrs, seasonAVG, seasonHR, seasonRBI, seasonOBP, seasonERA, seasonK, seasonW) {
+  const ctx = qs('#careerChart');
+  const totalsEl = qs('#careerTotals');
+  const milestonesEl = qs('#milestones');
+  if (!ctx) return;
 
-    // 生涯總覽（示例匯總）
-    if (totalsEl) {
-      const totals = { HR: 126, RBI: 385, K: 782, W: 59, AVG: .307, ERA: 2.96 };
-      totalsEl.innerHTML = `
-        <div class="total-item"><div class="label">AVG</div><div class="value">${totals.AVG.toFixed(3)}</div></div>
-        <div class="total-item"><div class="label">HR</div><div class="value">${totals.HR}</div></div>
-        <div class="total-item"><div class="label">RBI</div><div class="value">${totals.RBI}</div></div>
-        <div class="total-item"><div class="label">ERA</div><div class="value">${totals.ERA.toFixed(2)}</div></div>
-        <div class="total-item"><div class="label">K</div><div class="value">${totals.K}</div></div>
-        <div class="total-item"><div class="label">W</div><div class="value">${totals.W}</div></div>
-      `;
-    }
+  // ✅ 使用真實資料建立雷達圖
+  new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: ['AVG','HR','RBI','OBP','ERA','K','W'],
+      datasets: seasonyrs.map((y, idx) => ({
+        label: y,
+        data: [
+          seasonAVG[idx] || 0,
+          seasonHR[idx] || 0,
+          seasonRBI[idx] || 0,
+          seasonOBP[idx] || 0,
+          seasonERA[idx] || 0,
+          seasonK[idx] || 0,
+          seasonW[idx] || 0
+        ],
+        borderColor: `hsl(${(idx*60)%360} 70% 45%)`,
+        backgroundColor: `hsl(${(idx*60)%360} 70% 45% / .15)`
+      }))
+    },
+    options: { responsive: true, scales: { r: { ticks: { display: false } } }, plugins: { legend: { position: 'bottom' } } }
+  });
 
-    // 里程碑進度
-    if (milestonesEl) {
-      const ms = [
-        { name: '生涯 150 HR', current: 126, target: 150 },
-        { name: '生涯 1000 K', current: 782, target: 1000 },
-        { name: '生涯 70 勝', current: 59, target: 70 }
-      ];
-      milestonesEl.innerHTML = ms.map(m => {
-        const pct = Math.min(100, Math.round((m.current / m.target) * 100));
-        return `
-          <div class="milestone">
-            <div class="name">${m.name}</div>
-            <div class="progress"><div class="bar" style="width:${pct}%"></div></div>
-            <div class="count">${m.current} / ${m.target}</div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function rand(min, max, fixed=2){ return Number((Math.random()*(max-min)+min).toFixed(fixed)); }
-    function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
+  // ✅ 生涯總覽（加總或平均）
+  if (totalsEl) {
+    const totals = {
+      AVG: seasonAVG.reduce((a,b)=>a+b,0) / (seasonAVG.length || 1),
+      HR: seasonHR.reduce((a,b)=>a+b,0),
+      RBI: seasonRBI.reduce((a,b)=>a+b,0),
+      OBP: seasonOBP.reduce((a,b)=>a+b,0) / (seasonOBP.length || 1),
+      ERA: seasonERA.reduce((a,b)=>a+b,0) / (seasonERA.length || 1),
+      K: seasonK.reduce((a,b)=>a+b,0),
+      W: seasonW.reduce((a,b)=>a+b,0)
+    };
+    totalsEl.innerHTML = `
+      <div class="total-item"><div class="label">AVG</div><div class="value">${totals.AVG.toFixed(3)}</div></div>
+      <div class="total-item"><div class="label">HR</div><div class="value">${totals.HR}</div></div>
+      <div class="total-item"><div class="label">RBI</div><div class="value">${totals.RBI}</div></div>
+      <div class="total-item"><div class="label">OBP</div><div class="value">${totals.OBP.toFixed(3)}</div></div>
+      <div class="total-item"><div class="label">ERA</div><div class="value">${totals.ERA.toFixed(2)}</div></div>
+      <div class="total-item"><div class="label">K</div><div class="value">${totals.K}</div></div>
+      <div class="total-item"><div class="label">W</div><div class="value">${totals.W}</div></div>
+    `;
   }
+
+  // ✅ 里程碑進度（用真實加總數字）
+  if (milestonesEl) {
+    const totalsHR = seasonHR.reduce((a,b)=>a+b,0);
+    const totalsK = seasonK.reduce((a,b)=>a+b,0);
+    const totalsW = seasonW.reduce((a,b)=>a+b,0);
+    const ms = [
+      { name: '生涯 150 HR', current: totalsHR, target: 150 },
+      { name: '生涯 1000 K', current: totalsK, target: 1000 },
+      { name: '生涯 70 勝', current: totalsW, target: 70 }
+    ];
+    milestonesEl.innerHTML = ms.map(m => {
+      const pct = Math.min(100, Math.round((m.current / m.target) * 100));
+      return `
+        <div class="milestone">
+          <div class="name">${m.name}</div>
+          <div class="progress"><div class="bar" style="width:${pct}%"></div></div>
+          <div class="count">${m.current} / ${m.target}</div>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
 
   function initCareerTimeline() {
     const wrap = qs('#careerTimeline');
