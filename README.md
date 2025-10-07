@@ -5,10 +5,20 @@
 > the *number indicates the version*.  
 > Use the **highest version number** for the latest release.
 
+
 > **版本说明**：
 > 项目文件夹名称遵循以下格式：**website_v*** —
 > *数字表示版本*。
 > 使用**最高版本号**表示最新版本。
+
+## 文件名和位置
+> Webscrape Python 代码以及数据排序代码位于 python_webscrape 文件夹中，以及 2025_07_26 抓取的数据。
+> Webscrape 数据位于其他文件夹中。
+
+## FILE NAMES & Location
+> The webscrape python code along with the data sorting code is in the python_webscrape folder along with scraped data from 2025_07_26
+> webscraped data is inside others 
+
 
 
 ## 📦 Download Instructions
@@ -153,6 +163,6 @@ node server.js
 
 **Author:** 劉晨煜  
 **Project:** CPBL Baseball Website  
-**Language:** Node.js + HTML + JavaScript + CSS  
+**Language:** Node.js + HTML + JavaScript + CSS + python + json
 
 
