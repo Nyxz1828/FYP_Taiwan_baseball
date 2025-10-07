@@ -21,14 +21,6 @@
 
 
 
-## 📦 Download Instructions
-
-To save space, you only need to **download the folder** named:
-```
-website_v*
-```
-(where `*` is the highest version number)
-
 ## 📦 下载说明
 
 为了节省空间，您只需**下载名为**的文件夹：
@@ -36,6 +28,15 @@ website_v*
 website_v*
 ```
 （其中 `*` 表示最高版本号）
+
+
+## 📦 Download Instructions
+
+To save space, you only need to **download the folder** named:
+```
+website_v*
+```
+(where `*` is the highest version number)
 
 ## 🚀 Running the Server
 
@@ -161,7 +162,7 @@ node server.js
 
 ---
 
-**Author:** 劉晨煜  
+  
 **Project:** CPBL Baseball Website  
 **Language:** Node.js + HTML + JavaScript + CSS + python + json
 
