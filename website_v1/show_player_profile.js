@@ -2,6 +2,15 @@
 const paramss = new URLSearchParams(window.location.search);
 const playerNames = params.get("player_name");
 
+
+//teams_logo
+const guardians_logo = "https://twbsball.dils.tku.edu.tw/wiki/images/d/dd/Logo_fubon.png";
+const monkey_logo = "https://twbsball.dils.tku.edu.tw/wiki/images/a/a7/Logo_monkeys.png";
+const dragons_logo = "https://twbsball.dils.tku.edu.tw/wiki/images/0/09/Logo_dragons.png";
+const lions_logo = "https://twbsball.dils.tku.edu.tw/wiki/images/f/f0/Logo_brothers.png";
+const eagles_logo = "https://twbsball.dils.tku.edu.tw/wiki/images/c/ce/TSG_Hawks.jpg";
+const brothers_logo = "https://twbsball.dils.tku.edu.tw/wiki/images/f/f0/Logo_brothers.png";
+
 // Replace <h1> title
 if (playerNames) {
     document.getElementById("playerName").textContent = playerNames;
@@ -40,6 +49,28 @@ async function loadPlayerData() {
         // Fill all fields by ID
         document.getElementById("playerNumber").textContent = player.number || "";
         document.getElementById("teamName").textContent = player.team || "";
+
+        // Set team logo
+        if (player.team === "Guardians") {
+          document.getElementById("teamLogo").src = guardians_logo;
+        }
+        if (player.team === "Monkeys") {
+          document.getElementById("teamLogo").src = monkey_logo;
+        }
+        if (player.team === "DRAGONS") {
+          documentElements.getElementById("teamLogo").src = dragons_logo;
+        }
+        if (player.team === "U-Lions") { 
+          documentElements.getElementById("teamLogo").src = lions_logo;
+        }
+        if (player.team === "TSG Hawks") {
+          document.getElementById("teamLogo").src = eagles_logo;
+        }
+        if (player.team === "Brothers") {
+          document.getElementById("teamLogo").src = brothers_logo;
+        }
+
+
         document.getElementById("playerPosition").textContent = player.position || "";
         //document.getElementById("batting_hand").textContent = player.batting_hand || "";
         document.getElementById("playerHeight").textContent = player.height || "";
