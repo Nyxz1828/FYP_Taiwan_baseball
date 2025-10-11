@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>CPBL ?? SCHEDULE</title>
+  <title>CPBL 賽程 SCHEDULE</title>
   <style>
     :root {
       color-scheme: light;
@@ -397,7 +397,7 @@
   <header class="topbar">
     <div class="topbar__title">
       <h1>CPBL 賽程 SCHEDULE</h1>
-      <p>??????? - ????????????????</p>
+      <p>中華職業棒球大聯盟</p>
     </div>
     <div class="topbar__controls">
       <button id="refresh" type="button" class="primary">Refresh</button>
@@ -414,8 +414,8 @@
         <h2 id="scheduleHeading">日程表 <span class="en">calendar</span></h2>
         <div class="filters">
           <div class="month-controls">
-            <button id="prevMonth" type="button" class="secondary">?</button>
-            <button id="nextMonth" type="button" class="secondary">?</button>
+            <button id="prevMonth" type="button" class="secondary">⇐</button>
+            <button id="nextMonth" type="button" class="secondary">⇒</button>
           </div>
           <div id="monthLabel" class="month-label">�</div>
           <select id="kindSelect" aria-label="????"></select>
@@ -654,9 +654,9 @@
         const score = document.createElement('span');
         score.className = 'score';
         if (status.className === 'final') {
-          score.textContent = `${game.awayScore} � ${game.homeScore}`;
+          score.textContent = `${game.awayScore} ⚔ ${game.homeScore}`;
         } else if (status.className === 'live' && game.awayScore !== null && game.homeScore !== null) {
-          score.textContent = `${game.awayScore} � ${game.homeScore}`;
+          score.textContent = `${game.awayScore} ⚔ ${game.homeScore}`;
         } else {
           score.classList.add('placeholder');
           score.textContent = 'VS';
@@ -716,7 +716,7 @@
         els.locationSelect.innerHTML = '';
         const allOption = document.createElement('option');
         allOption.value = '';
-        allOption.textContent = '????';
+        allOption.textContent = '沒有選擇選項';
         els.locationSelect.appendChild(allOption);
         locations.forEach((item) => {
           const option = document.createElement('option');
