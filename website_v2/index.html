@@ -493,6 +493,7 @@
           <i class="ri-bar-chart-line"></i> 顯示上半季戰績圖表
         </button>
 
+
         <!-- Hidden chart container -->
         <div id="upperSeasonChartContainer" style="display:none;">
           <div style="min-height:300px;">
@@ -723,176 +724,19 @@
             console.log('season_rank_chart', upper_season_rank.rows);
             console.log('reprint');
 
-/**
- * Render CPBL Upper Season Chart
- * @param {Object} upper_season_rank - Object containing a `rows` array of team data
- * Example: upper_season_rank.rows = [{team, winRate, rank, logo, ...}, ...]
- */
-function render_upper_season_chart(upper_season_rank) {
-  console.log("🎯 Rendering upper season chart...", upper_season_rank);
-
-  const container = document.getElementById("upperSeasonChartContainer");
-  const legendContainer = document.getElementById("teamLegend");
-  const canvas = document.getElementById("leagueTrendChart");
-
-  // Clean up previous chart if exists
-  if (window.leagueChart) {
-    window.leagueChart.destroy();
-  }
-  legendContainer.innerHTML = "";
-
-  // === 1️⃣ Validate data ===
-  const seasonData = upper_season_rank?.rows || [];
-  if (!seasonData.length) {
-    console.warn("⚠️ No season data found for chart.");
-    return;
-  }
-
-  // === 2️⃣ Define team colors ===
-  const teamColors = {
-    "中信兄弟": "#FFD700",
-    "樂天桃猿": "#E60039",
-    "統一7-ELEVEn獅": "#FF7F27",
-    "台鋼雄鷹": "#009879",
-    "味全龍": "#D60000",
-    "富邦悍將": "#0066CC",
-  };
-
-  // === 3️⃣ Prepare datasets ===
-  const labels = seasonData.map(t => t.team);
-  const winRates = seasonData.map(t => parseFloat(t.winRate));
-
-  const datasets = seasonData.map((team, idx) => ({
-    label: team.team,
-    data: [parseFloat(team.winRate)],
-    borderColor: teamColors[team.team] || `hsl(${idx * 60},70%,50%)`,
-    backgroundColor: teamColors[team.team] || `hsl(${idx * 60},70%,50%)`,
-    fill: false,
-    borderWidth: 3,
-    tension: 0.4,
-  }));
-
-  // === 4️⃣ Create Chart.js chart ===
-  const ctx = canvas.getContext("2d");
-  window.leagueChart = new Chart(ctx, {
-    type: "bar",
-    data: {
-      labels: labels,
-      datasets: [{
-        label: "勝率 (Win Rate)",
-        data: winRates,
-        backgroundColor: labels.map((team, idx) => teamColors[team] || `hsl(${idx * 60},70%,60%)`),
-        borderColor: labels.map((team, idx) => teamColors[team] || `hsl(${idx * 60},70%,40%)`),
-        borderWidth: 2,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => `${ctx.label}: ${ctx.parsed.y}`,
-          },
-        },
-        title: {
-          display: true,
-          text: "2025 上半季 勝率排行圖表",
-          font: { size: 18 }
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          max: 1,
-          ticks: { stepSize: 0.1 },
-          title: { display: true, text: "勝率" },
-        },
-        x: { title: { display: true, text: "球隊名稱" } },
-      },
-    },
-  });
-
-  // === 5️⃣ Create custom legend (team color toggle) ===
-  seasonData.forEach(team => {
-    const color = teamColors[team.team] || "#999";
-    const item = document.createElement("div");
-    item.classList.add("team-toggle");
-    item.style.display = "flex";
-    item.style.alignItems = "center";
-    item.style.cursor = "pointer";
-    item.style.gap = "6px";
-    item.dataset.team = team.team;
-    item.innerHTML = `
-      <div class="color-box" style="
-        width:18px;height:18px;
-        border-radius:4px;
-        background:${color};
-        border:1px solid #ccc;
-        transition:opacity 0.2s;">
-      </div>
-      <span style="font-weight:600;">${team.team}</span>
-    `;
-    legendContainer.appendChild(item);
-  });
-
-  // === 6️⃣ Add toggle behavior for bars ===
-  document.querySelectorAll(".team-toggle").forEach(el => {
-    el.addEventListener("click", () => {
-      const teamName = el.dataset.team;
-      const teamIndex = labels.indexOf(teamName);
-      const colorBox = el.querySelector(".color-box");
-
-      // Toggle visibility by making bar transparent
-      const currentAlpha = window.leagueChart.data.datasets[0].backgroundColor[teamIndex].includes("rgba")
-        ? window.leagueChart.data.datasets[0].backgroundColor[teamIndex]
-        : Chart.helpers.color(window.leagueChart.data.datasets[0].backgroundColor[teamIndex]).alpha(1).rgbString();
-
-      const hidden = colorBox.style.opacity === "0.3";
-      colorBox.style.opacity = hidden ? "1" : "0.3";
-
-      // Set alpha on dataset color
-      const newColor = hidden
-        ? teamColors[teamName]
-        : Chart.helpers.color(teamColors[teamName]).alpha(0.2).rgbString();
-
-      window.leagueChart.data.datasets[0].backgroundColor[teamIndex] = newColor;
-      window.leagueChart.update();
-    });
-  });
-
-  // === 7️⃣ Reveal chart section ===
-  container.style.display = "block";
-  console.log("✅ Upper season chart rendered successfully!");
-}
-document.addEventListener("DOMContentLoaded", () => {
-  const showBtn = document.getElementById("toggleSeasonChartBtn");
-  const container = document.getElementById("upperSeasonChartContainer");
-  let isShown = false;
-
-  showBtn.addEventListener("click", () => {
-    isShown = !isShown;
-    if (isShown) {
-      showBtn.innerHTML = `<i class="ri-eye-off-line"></i> 隱藏上半季戰績圖表`;
-      console.log("Button clicked: Show Upper Season Chart");
-      render_upper_season_chart(upper_season_rank);
-    } else {
-      showBtn.innerHTML = `<i class="ri-bar-chart-line"></i> 顯示上半季戰績圖表`;
-      container.style.display = "none";
-    }
-  });
-});
+  
 
 
-
-          
-
-
-            //end of rendering chart
           table.appendChild(tbody);
           card.appendChild(table);
+          
+          
+
           container.appendChild(card);
         });
+
+
+        
       };
 
       const renderTopFive = (container, groups, emptyMessage) => {
@@ -1085,6 +929,172 @@ document.addEventListener("DOMContentLoaded", () => {
           scheduleRefresh();
         }
       };
+
+
+                /**
+          * Render CPBL Upper Season Chart
+          * @param {Object} upper_season_rank - Object containing a `rows` array of team data
+          * Example: upper_season_rank.rows = [{team, winRate, rank, logo, ...}, ...]
+          */
+          function render_upper_season_chart(upper_season_rank) {
+            console.log("🎯 Rendering upper season chart...", upper_season_rank);
+
+            const container = document.getElementById("upperSeasonChartContainer");
+            const legendContainer = document.getElementById("teamLegend");
+            const canvas = document.getElementById("leagueTrendChart");
+
+            // Clean up previous chart if exists
+            if (window.leagueChart) {
+              window.leagueChart.destroy();
+            }
+            legendContainer.innerHTML = "";
+
+            // === 1️⃣ Validate data ===
+            const seasonData = upper_season_rank?.rows || [];
+            if (!seasonData.length) {
+              console.warn("⚠️ No season data found for chart.");
+              return;
+            }
+
+            // === 2️⃣ Define team colors ===
+            const teamColors = {
+              "中信兄弟": "#FFD700",
+              "樂天桃猿": "#E60039",
+              "統一7-ELEVEn獅": "#FF7F27",
+              "台鋼雄鷹": "#009879",
+              "味全龍": "#D60000",
+              "富邦悍將": "#0066CC",
+            };
+
+            // === 3️⃣ Prepare datasets ===
+            const labels = seasonData.map(t => t.team);
+            const winRates = seasonData.map(t => parseFloat(t.winRate));
+
+            const datasets = seasonData.map((team, idx) => ({
+              label: team.team,
+              data: [parseFloat(team.winRate)],
+              borderColor: teamColors[team.team] || `hsl(${idx * 60},70%,50%)`,
+              backgroundColor: teamColors[team.team] || `hsl(${idx * 60},70%,50%)`,
+              fill: false,
+              borderWidth: 3,
+              tension: 0.4,
+            }));
+
+            // === 4️⃣ Create Chart.js chart ===
+            const ctx = canvas.getContext("2d");
+            window.leagueChart = new Chart(ctx, {
+              type: "bar",
+              data: {
+                labels: labels,
+                datasets: [{
+                  label: "勝率 (Win Rate)",
+                  data: winRates,
+                  backgroundColor: labels.map((team, idx) => teamColors[team] || `hsl(${idx * 60},70%,60%)`),
+                  borderColor: labels.map((team, idx) => teamColors[team] || `hsl(${idx * 60},70%,40%)`),
+                  borderWidth: 2,
+                }]
+              },
+              options: {
+                responsive: true,
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    callbacks: {
+                      label: ctx => `${ctx.label}: ${ctx.parsed.y}`,
+                    },
+                  },
+                  title: {
+                    display: true,
+                    text: "2025 上半季 勝率排行圖表",
+                    font: { size: 18 }
+                  }
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    max: 1,
+                    ticks: { stepSize: 0.1 },
+                    title: { display: true, text: "勝率" },
+                  },
+                  x: { title: { display: true, text: "球隊名稱" } },
+                },
+              },
+            });
+
+            // === 5️⃣ Create custom legend (team color toggle) ===
+            seasonData.forEach(team => {
+              const color = teamColors[team.team] || "#999";
+              const item = document.createElement("div");
+              item.classList.add("team-toggle");
+              item.style.display = "flex";
+              item.style.alignItems = "center";
+              item.style.cursor = "pointer";
+              item.style.gap = "6px";
+              item.dataset.team = team.team;
+              item.innerHTML = `
+                <div class="color-box" style="
+                  width:18px;height:18px;
+                  border-radius:4px;
+                  background:${color};
+                  border:1px solid #ccc;
+                  transition:opacity 0.2s;">
+                </div>
+                <span style="font-weight:600;">${team.team}</span>
+              `;
+              legendContainer.appendChild(item);
+            });
+
+            // === 6️⃣ Add toggle behavior for bars ===
+            document.querySelectorAll(".team-toggle").forEach(el => {
+              el.addEventListener("click", () => {
+                const teamName = el.dataset.team;
+                const teamIndex = labels.indexOf(teamName);
+                const colorBox = el.querySelector(".color-box");
+
+                // Toggle visibility by making bar transparent
+                const currentAlpha = window.leagueChart.data.datasets[0].backgroundColor[teamIndex].includes("rgba")
+                  ? window.leagueChart.data.datasets[0].backgroundColor[teamIndex]
+                  : Chart.helpers.color(window.leagueChart.data.datasets[0].backgroundColor[teamIndex]).alpha(1).rgbString();
+
+                const hidden = colorBox.style.opacity === "0.3";
+                colorBox.style.opacity = hidden ? "1" : "0.3";
+
+                // Set alpha on dataset color
+                const newColor = hidden
+                  ? teamColors[teamName]
+                  : Chart.helpers.color(teamColors[teamName]).alpha(0.2).rgbString();
+
+                window.leagueChart.data.datasets[0].backgroundColor[teamIndex] = newColor;
+                window.leagueChart.update();
+              });
+            });
+
+            // === 7️⃣ Reveal chart section ===
+            container.style.display = "block";
+            console.log("✅ Upper season chart rendered successfully!");
+          }
+          document.addEventListener("DOMContentLoaded", () => {
+            const showBtn = document.getElementById("toggleSeasonChartBtn");
+            const container = document.getElementById("upperSeasonChartContainer");
+            let isShown = false;
+
+            showBtn.addEventListener("click", () => {
+              isShown = !isShown;
+              if (isShown) {
+                showBtn.innerHTML = `<i class="ri-eye-off-line"></i> 隱藏上半季戰績圖表`;
+                console.log("Button clicked: Show Upper Season Chart");
+                render_upper_season_chart(upper_season_rank);
+              } else {
+                showBtn.innerHTML = `<i class="ri-bar-chart-line"></i> 顯示上半季戰績圖表`;
+                container.style.display = "none";
+              }
+            });
+          });
+
+
+
+            
+
 
       els.refresh.addEventListener('click', loadData);
 
