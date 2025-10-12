@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>CPBL 賽程 SCHEDULE</title>
   <style>
+
+    html {
+  zoom: 80%;
+}
     :root {
       color-scheme: light;
     }
@@ -391,9 +395,57 @@
         width: 100%;
       }
     }
+
+
+    /* loading animation styles */
+    #loading_animation {
+      position: fixed; /* cover whole page */
+      zoom: 125%;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #fff; /* optional background */
+      z-index: 9999; /* keep on top */
+      transition: opacity 1s ease; /* fade duration */
+    }
+    #loading_animation.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #loading_animation iframe {
+      
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
   </style>
 </head>
 <body>
+
+    <!-- start of animation -->
+    <div id="loading_animation" width="100%" height="100%" >
+
+
+      <iframe src="loading_animation.html" frameborder="0" width="100%" height="100%">
+      </iframe>
+        <script>
+      // Wait 1.5 second, then fade out
+      setTimeout(() => {
+        document.getElementById("loading_animation").classList.add("fade-out");
+      }, 1500);
+      </script>
+    </div>
+    <!-- end of animation --> 
+
+        <!-- start of header --> 
+    <div>
+      <iframe src="header.html" frameborder="0" width="100%" height="80px" style="border:none;">
+      </iframe>
+    </div> 
+    <!-- end of header -->
+  
   <header class="topbar">
     <div class="topbar__title">
       <h1>CPBL 賽程 SCHEDULE</h1>
