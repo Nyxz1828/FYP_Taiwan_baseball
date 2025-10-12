@@ -224,25 +224,25 @@
 
             <!-- new interactive chart here -->
               <div class="panel-card" id="customTrendCard" style="grid-column: 1 / -1;">
-                <h3 class="panel-title">互動式圖表</h3>
+                <h3 class="panel-title">互動式比對圖表</h3>
                 <div class="custom-trend">
                   <div class="trend-controls" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
                     <label style="display:flex;flex-direction:column;font-weight:600;gap:4px;">
-                      ???
+                      参数 1 
                       <select id="trendMetricA" style="min-width:140px;padding:8px 10px;border:1px solid rgba(41,56,128,0.18);border-radius:8px;background:#f7f8ff;"></select>
                     </label>
                     <label style="display:flex;flex-direction:column;font-weight:600;gap:4px;">
-                      ???
+                      参数 2
                       <select id="trendMetricB" style="min-width:140px;padding:8px 10px;border:1px solid rgba(41,56,128,0.18);border-radius:8px;background:#f7f8ff;"></select>
                     </label>
                     <label style="display:flex;flex-direction:column;font-weight:600;gap:4px;">
-                      ????
+                      展現方式
                       <select id="trendChartType" style="min-width:140px;padding:8px 10px;border:1px solid rgba(41,56,128,0.18);border-radius:8px;background:#f7f8ff;">
-                        <option value="line">??</option>
-                        <option value="bar">???</option>
+                        <option value="line">綫條</option>
+                        <option value="bar">条形</option>
                       </select>
                     </label>
-                    <button id="applyTrendBtn" class="btn btn-accent" type="button" style="white-space:nowrap;"><i class="ri-refresh-line"></i> ????</button>
+                    <button id="applyTrendBtn" class="btn btn-accent" type="button" style="white-space:nowrap;"><i class="ri-refresh-line"></i> 更新</button>
                   </div>
                   <div class="trend-chart" style="min-height:220px;">
                     <canvas id="customTrendChart" height="220"></canvas>
