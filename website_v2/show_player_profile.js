@@ -54,14 +54,14 @@ async function loadPlayerData() {
         if (player.team === "Guardians") {
           document.getElementById("teamLogo").src = guardians_logo;
         }
-        if (player.team === "Monkeys") {
+        if (player.team.includes("Monkeys")) {
           document.getElementById("teamLogo").src = monkey_logo;
         }
-        if (player.team === "DRAGONS") {
-          documentElements.getElementById("teamLogo").src = dragons_logo;
+        if (player.team.includes("DRAGONS")) {
+          document.getElementById("teamLogo").src = dragons_logo;
         }
         if (player.team === "U-Lions") { 
-          documentElements.getElementById("teamLogo").src = lions_logo;
+          document.getElementById("teamLogo").src = lions_logo;
         }
         if (player.team === "TSG Hawks") {
           document.getElementById("teamLogo").src = eagles_logo;

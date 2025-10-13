@@ -451,6 +451,8 @@
     <div>
       <iframe src="header.html" frameborder="0" width="100%" height="80px" style="border:none;">
       </iframe>
+
+
     </div> 
     <!-- end of header -->
 
@@ -769,7 +771,9 @@
             tr.appendChild(rankTd);
 
             const nameTd = document.createElement('td');
-            nameTd.appendChild(createAnchor(player.playerUrl, player.player || '', ''));
+            const player_url_own = 'show_player_profile.html?player_name='+ player.player
+            nameTd.appendChild(createAnchor(player_url_own, player.player || '', ''));
+            console.log('player change into', player.playerUrl, 'into', 'show_player_profile.html?player_name=', player.player);
             tr.appendChild(nameTd);
 
             const teamTd = document.createElement('td');
