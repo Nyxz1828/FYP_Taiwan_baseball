@@ -20,6 +20,17 @@
   --radius-xl: 16px;
 }
 
+/* Blue button variant matching base .btn style */
+.btn-blue {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+.btn-blue:hover {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
+
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Inter','Noto Sans TC','Roboto',ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif; }
 .container { width: min(1200px, 92%); margin-inline: auto; }
