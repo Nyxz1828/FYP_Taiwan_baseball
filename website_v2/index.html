@@ -10,6 +10,7 @@
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css" rel="stylesheet">
      <link rel="icon" href="https://fav.farm/⚾">
      <link rel="stylesheet" href="app.css" />
+     <link rel="stylesheet" href="chatbot.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <style>
           :root {
@@ -491,10 +492,14 @@
         <h3 class="panel-title">上半季戰績</h3>
         
         <!-- Toggle button -->
-        <button id="toggleSeasonChartBtn" class="btn btn-accent" type="button" style="margin-bottom:12px;">
+        <button id="toggleSeasonChartBtn" class="btn btn-accent" type="button" style="display: flex;margin-bottom:12px;">
           <i class="ri-bar-chart-line"></i> 顯示上半季戰績圖表
         </button>
 
+        <button id="toggleSeasonChartBtn" class="btn btn-accent" type="button" style=" display: flex; margin: 0 auto 12px auto;margin-bottom:12px;">
+          <i class="ri-bar-chart-line"></i> 顯示下半季戰績圖表
+        </button>
+        
 
         <!-- Hidden chart container -->
         <div id="upperSeasonChartContainer" style="display:none;">
@@ -1117,6 +1122,37 @@
   </script>
 
 
+  <!-- chat bottt here -->
+    <div class="bg-canvas" aria-hidden="true"></div>
+
+    <!-- 主要：獨立 Chatbot 頁面只保留聊天 FAB 與面板 -->
+    <button id="chatFab" class="fab chat-fab" aria-label="開啟 AI 助理">
+      <i class="ri-robot-2-line"></i>
+    </button>
+
+    <section id="chatbot" class="chatbot" aria-label="AI 聊天助理" hidden>
+      <header class="chat-header">
+        <div class="chat-title"><i class="ri-robot-2-line"></i> ProBall AI 助理</div>
+        <div class="chat-actions">
+          <button id="chatClose" class="icon-btn" aria-label="清除對話" data-tooltip="清除對話"><i class="ri-close-line"></i></button>
+        </div>
+      </header>
+      <div id="chatBody" class="chat-body" role="log" aria-live="polite"></div>
+      <div class="chat-input">
+        <input id="chatText" type="text" placeholder="輸入訊息，例如：今天有哪些賽事？" aria-label="輸入訊息" />
+        <button id="chatSend" class="btn btn-accent" aria-label="送出"><i class="ri-send-plane-2-line"></i></button>
+      </div>
+    </section>
+
+    <!-- Command Palette -->
+    <div id="cmdPalette" class="cmd-palette" hidden role="dialog" aria-modal="true" aria-label="指令面板">
+      <div class="cmd-inner">
+        <input id="cmdInput" class="cmd-input" type="text" placeholder="搜尋指令…" aria-label="搜尋指令" />
+        <div id="cmdList" class="cmd-list" role="listbox"></div>
+      </div>
+    </div>
+
+    <script src="chatbot.js"></script>
     
 
 
