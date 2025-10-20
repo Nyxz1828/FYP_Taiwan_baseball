@@ -494,7 +494,7 @@
         
     <!-- Toggle buttons row -->
     <div class="season-toggle-row" 
-        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;"><!-- tightened -->
 
       <!-- Left-aligned upper season button -->
       <button id="toggleUpperChartBtn" class="btn btn-accent" type="button" style="display: flex; align-items: center; gap: 6px;">
@@ -530,6 +530,16 @@
       <div class="panel__header">
         <h2 id="pitchingHeading">投手TOP5 <span class="en">pitching leaders</span></h2>
       </div>
+
+      <!-- ★ Button to show team radar (pitching) -->
+      <div style="display:flex;align-items:center;gap:8px;margin-top:-8px;">
+        <button id="togglePitchRadarsBtn" class="btn btn-accent" type="button" style="display:inline-flex;align-items:center;gap:6px;">
+          <i class="ri-shapes-line"></i> 顯示各隊雷達圖（投手）
+        </button>
+      </div>
+      <!-- ★ Container for team radars (pitching) -->
+      <div id="pitchingRadarContainer" style="display:none;margin-top:10px;"></div>
+
       <div id="pitchingContent" class="topfive-grid"></div>
     </section>
 
@@ -537,6 +547,16 @@
       <div class="panel__header">
         <h2 id="battingHeading">打擊TOP5 <span class="en">batting leaders</span></h2>
       </div>
+
+      <!-- ★ Button to show team radar (batting) -->
+      <div style="display:flex;align-items:center;gap:8px;margin-top:-8px;">
+        <button id="toggleBattingRadarsBtn" class="btn btn-accent" type="button" style="display:inline-flex;align-items:center;gap:6px;">
+          <i class="ri-shapes-line"></i> 顯示各隊雷達圖（打者）
+        </button>
+      </div>
+      <!-- ★ Container for team radars (batting) -->
+      <div id="battingRadarContainer" style="display:none;margin-top:10px;"></div>
+
       <div id="battingContent" class="topfive-grid"></div>
     </section>
 
@@ -565,12 +585,21 @@
     pitching: document.getElementById('pitchingContent'),
     batting: document.getElementById('battingContent'),
     news: document.getElementById('newsContent'),
+    // ★ radar UI
+    pitchingRadarBtn: document.getElementById('togglePitchRadarsBtn'),
+    pitchingRadarWrap: document.getElementById('pitchingRadarContainer'),
+    battingRadarBtn: document.getElementById('toggleBattingRadarsBtn'),
+    battingRadarWrap: document.getElementById('battingRadarContainer'),
   };
 
   let refreshTimer;
   let season_rank_chart = [];
   let upper_season_rank = [];
   let lower_season_rank = [];
+  let latestData = null; // ★ keep last payload for radar charts
+  // store created radar charts to destroy on re-render
+  window.__pitchRadarCharts = [];
+  window.__batRadarCharts = [];
 
   const createAnchor = (url, text, className) => {
     const el = document.createElement(url ? 'a' : 'span');
@@ -770,14 +799,14 @@ function render_season_chart(seasonData, titleText) {
   // === Create wrapper ===
   const title = document.createElement("h3");
   title.textContent = titleText || "球隊戰績圖表";
-  title.style.margin = "12px 0";
+  title.style.margin = "6px 0 4px"; /* tightened */
   title.style.fontWeight = "700";
   container.appendChild(title);
 
   const chartWrapper = document.createElement("div");
   chartWrapper.style.display = "grid";
   chartWrapper.style.gridTemplateColumns = "repeat(3, 1fr)";
-  chartWrapper.style.gap = "20px";
+  chartWrapper.style.gap = "16px";
   chartWrapper.style.alignItems = "start";
   container.appendChild(chartWrapper);
 
@@ -833,7 +862,7 @@ function render_season_chart(seasonData, titleText) {
 
   // === Stats summary (PCT / GB / Streak) ===
   const summary = document.createElement("table");
-  summary.style.marginTop = "16px";
+  summary.style.marginTop = "12px";
   summary.style.width = "100%";
   summary.innerHTML = `
     <thead>
@@ -862,11 +891,9 @@ function render_season_chart(seasonData, titleText) {
     </tbody>
   `;
   container.appendChild(summary);
-} // <-- close render_season_chart()
-
-// end of data.forEach loop
-}); // closes data.forEach
-} // closes renderStandings
+}
+    });
+  };
 
   const renderTopFive = (container, groups, emptyMessage) => {
     container.innerHTML = '';
@@ -967,6 +994,7 @@ function render_season_chart(seasonData, titleText) {
       const response = await fetch(ENDPOINT, { cache: 'no-store' });
       if (!response.ok) throw new Error(`Server returned ${response.status}`);
       const json = await response.json();
+      latestData = json; // ★ keep for radars
       renderMagazine(json.magazines);
       renderStandings(json.standings);
       renderTopFive(els.pitching, json.pitchingTop5, 'No pitching leaderboard data.');
@@ -1054,7 +1082,7 @@ function render_season_chart(seasonData, titleText) {
     heading.style.display = "flex";
     heading.style.alignItems = "center";
     heading.style.gap = "12px";
-    heading.style.margin = "8px 0 12px 0";
+    heading.style.margin = "6px 0 4px"; // tightened
     heading.style.fontWeight = "700";
     heading.style.fontSize = "1.05rem";
     heading.textContent = titleText || "球隊戰績圖表";
@@ -1240,6 +1268,196 @@ function render_season_chart(seasonData, titleText) {
     if (document.hidden) clearTimeout(refreshTimer);
     else loadData();
   });
+
+  /** ---------- ★ Radar Charts for Teams (Pitching & Batting) ---------- **/
+  function destroyCharts(arr) {
+    (arr || []).forEach(c => { try { c.destroy(); } catch(e){} });
+    arr.length = 0;
+  }
+
+  function gridWrap(el, minWidth = 260) {
+    el.style.display = 'grid';
+    el.style.gridTemplateColumns = `repeat(auto-fit, minmax(${minWidth}px, 1fr))`;
+    el.style.gap = '14px';
+  }
+
+  // build { team -> {metricKey: numericValue} } from Top5 groups
+  function buildTeamMetricMap(groups, metricKeyMap) {
+    // groups: [{metric: '防禦率', players:[{team, value}, ...]}, ...]
+    const teamMap = {}; // { team: { ERA: number, W: number, SV: number, HLD: number, SO: number } }
+    const ensureTeam = (t) => { if(!teamMap[t]) teamMap[t] = {}; return teamMap[t]; };
+
+    (groups || []).forEach(g => {
+      const m = (g.metric || '').trim();
+      const key = metricKeyMap[m];
+      if (!key) return;
+      (g.players || []).forEach(p => {
+        const t = (p.team || '').trim();
+        const v = Number(String(p.value).replace(/[^\d.\-]/g,'')); // coerce numeric
+        if (!t || isNaN(v)) return;
+        ensureTeam(t)[key] = v;
+      });
+    });
+
+    return teamMap;
+  }
+
+  // normalize 0-100 by metric (optionally invert)
+  function normalizeTeamMap(teamMap, keys, invertKeys = new Set()) {
+    const maxByKey = {};
+    keys.forEach(k => {
+      maxByKey[k] = 0;
+      Object.values(teamMap).forEach(obj => {
+        const v = Number(obj[k] ?? 0);
+        if (v > maxByKey[k]) maxByKey[k] = v;
+      });
+    });
+    // ERA-like invert: higher score = better
+    Object.entries(teamMap).forEach(([team, obj]) => {
+      keys.forEach(k => {
+        const raw = Number(obj[k] ?? 0);
+        const max = maxByKey[k] || 1;
+        let score = (raw / max) * 100;
+        if (invertKeys.has(k)) score = ((max - raw) / max) * 100;
+        obj[k] = Math.max(0, Math.min(100, score));
+      });
+    });
+    return teamMap;
+  }
+
+  function colorSet(hex) {
+    return {
+      border: hexWithAlpha(hex, 0.9),
+      fill: hexWithAlpha(hex, 0.2),
+      point: hexWithAlpha(hex, 0.9),
+    };
+  }
+
+  function renderTeamRadars(container, teamMap, axisLabels, keyOrder, titlePrefix) {
+    container.innerHTML = '';
+    gridWrap(container, 280);
+    const charts = [];
+    const teams = Object.keys(teamMap).sort(); // stable order
+
+    teams.forEach(team => {
+      const cWrap = document.createElement('div');
+      cWrap.style.border = '1px solid rgba(47,61,136,0.12)';
+      cWrap.style.borderRadius = '12px';
+      cWrap.style.background = '#fcfdff';
+      cWrap.style.padding = '10px';
+
+      const h = document.createElement('div');
+      h.textContent = `${titlePrefix}：${team}`;
+      h.style.fontWeight = '600';
+      h.style.margin = '4px 0 8px';
+      cWrap.appendChild(h);
+
+      const canvas = document.createElement('canvas');
+      cWrap.appendChild(canvas);
+      container.appendChild(cWrap);
+
+      const color = teamColors[team] || '#4a6cf7';
+      const cs = colorSet(color);
+      const dataVals = keyOrder.map(k => Number(teamMap[team][k] ?? 0));
+
+      const chart = new Chart(canvas.getContext('2d'), {
+        type: 'radar',
+        data: {
+          labels: axisLabels,
+          datasets: [{
+            label: team,
+            data: dataVals,
+            borderColor: cs.border,
+            backgroundColor: cs.fill,
+            pointBackgroundColor: cs.point,
+            pointRadius: 3,
+            borderWidth: 2,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            r: {
+              min: 0,
+              max: 100,
+              ticks: { display: false },
+              grid: { color: 'rgba(0,0,0,0.12)' },
+              angleLines: { color: 'rgba(0,0,0,0.12)' },
+              pointLabels: { font: { size: 11 } }
+            }
+          },
+        },
+      });
+      charts.push(chart);
+      // make height reasonable
+      cWrap.style.height = '300px';
+    });
+
+    return charts;
+  }
+
+  // ★ Hook up buttons
+  els.pitchingRadarBtn?.addEventListener('click', () => {
+    if (!latestData?.pitchingTop5?.length) return;
+    const wrap = els.pitchingRadarWrap;
+    const isHidden = wrap.style.display === 'none' || wrap.style.display === '';
+    if (isHidden) {
+      // build team map for pitching
+      // mapping of Chinese metric -> internal key
+      const map = {
+        "防禦率": "ERA",
+        "勝投": "W",
+        "救援成功": "SV",
+        "中繼成功": "HLD",
+        "奪三振": "SO",
+      };
+      const order = ["ERA","W","SV","HLD","SO"];
+      const labels = ["防禦率","勝投","救援","中繼","三振"];
+      const teamMap = buildTeamMetricMap(latestData.pitchingTop5, map);
+      // invert ERA (lower is better)
+      const chartsData = normalizeTeamMap(teamMap, order, new Set(["ERA"]));
+      destroyCharts(window.__pitchRadarCharts);
+      wrap.style.display = 'block';
+      window.__pitchRadarCharts = renderTeamRadars(wrap, chartsData, labels, order, "投手雷達圖");
+      els.pitchingRadarBtn.innerHTML = `<i class="ri-eye-off-line"></i> 隱藏各隊雷達圖（投手）`;
+    } else {
+      wrap.style.display = 'none';
+      destroyCharts(window.__pitchRadarCharts);
+      els.pitchingRadarBtn.innerHTML = `<i class="ri-shapes-line"></i> 顯示各隊雷達圖（投手）`;
+    }
+  });
+
+  els.battingRadarBtn?.addEventListener('click', () => {
+    if (!latestData?.battingTop5?.length) return;
+    const wrap = els.battingRadarWrap;
+    const isHidden = wrap.style.display === 'none' || wrap.style.display === '';
+    if (isHidden) {
+      // build team map for batting
+      const map = {
+        "打擊率": "AVG",
+        "安打": "H",
+        "全壘打": "HR",
+        "打點": "RBI",
+        "盜壘": "SB",
+      };
+      const order = ["AVG","H","HR","RBI","SB"];
+      const labels = ["打擊率","安打","全壘打","打點","盜壘"];
+      const teamMap = buildTeamMetricMap(latestData.battingTop5, map);
+      // AVG is a rate typically < 1; normalization handles the scale
+      const chartsData = normalizeTeamMap(teamMap, order);
+      destroyCharts(window.__batRadarCharts);
+      wrap.style.display = 'block';
+      window.__batRadarCharts = renderTeamRadars(wrap, chartsData, labels, order, "打者雷達圖");
+      els.battingRadarBtn.innerHTML = `<i class="ri-eye-off-line"></i> 隱藏各隊雷達圖（打者）`;
+    } else {
+      wrap.style.display = 'none';
+      destroyCharts(window.__batRadarCharts);
+      els.battingRadarBtn.innerHTML = `<i class="ri-shapes-line"></i> 顯示各隊雷達圖（打者）`;
+    }
+  });
+  /** ---------- ★ END Radar Section ---------- **/
 
   loadData();
 })();
