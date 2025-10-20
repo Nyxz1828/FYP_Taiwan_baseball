@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if(!fab || !panel || !body || !input || !send) return;
 
   const KEY = 'proball-chat-history-standalone';
-  const history = JSON.parse(localStorage.getItem(KEY) || '[]');
+  const history = JSON.parse(localStorage.getItem(KEY) || '[]'); 
   history.forEach(m => appendMessage(m.role, m.text, { instant:true }));
 
   function openChatPanel(){

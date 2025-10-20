@@ -491,14 +491,25 @@
       <div class="panel-card" id="upperSeasonPanel" style="grid-column:1 / -1;">
         <h3 class="panel-title">上半季戰績</h3>
         
-        <!-- Toggle button -->
-        <button id="toggleSeasonChartBtn" class="btn btn-accent" type="button" style="display: flex;margin-bottom:12px;">
-          <i class="ri-bar-chart-line"></i> 顯示上半季戰績圖表
-        </button>
+    <!-- Toggle buttons row -->
+    <div class="season-toggle-row" 
+        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
 
-        <button id="toggleSeasonChartBtn" class="btn btn-accent" type="button" style=" display: flex; margin: 0 auto 12px auto;margin-bottom:12px;">
+      <!-- Left-aligned upper season button -->
+      <button id="toggleUpperChartBtn" class="btn btn-accent" type="button" style="display: flex; align-items: center; gap: 6px;">
+        <i class="ri-bar-chart-line"></i> 顯示上半季戰績圖表
+      </button>
+
+      <!-- Centered lower season button -->
+      <div style="flex: 1; text-align: center;">
+        <button id="toggleLowerChartBtn" class="btn btn-accent" type="button" style="display: inline-flex; align-items: center; gap: 6px;">
           <i class="ri-bar-chart-line"></i> 顯示下半季戰績圖表
         </button>
+      </div>
+    </div>
+
+
+
         
 
         <!-- Hidden chart container -->
@@ -1153,9 +1164,7 @@
     </div>
 
     <script src="chatbot.js"></script>
-    
 
 
-    <script src="app.js"></script>
   </body>
 </html>
