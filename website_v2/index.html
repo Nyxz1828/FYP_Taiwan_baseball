@@ -154,6 +154,7 @@
       box-shadow: 0 10px 24px -18px rgba(0, 0, 0, 0.6);
     }
 
+    
     .magazine__cover::after {
       content: '';
       position: absolute;
@@ -591,9 +592,7 @@
   };
 
   const setBackgroundImage = (el, url) => {
-    if (url) {
-      el.style.backgroundImage = `url('${url}')`;
-    }
+    if (url) el.style.backgroundImage = `url('${url}')`;
   };
 
   const renderMagazine = (data) => {
@@ -607,6 +606,7 @@
     if (data.current) {
       const current = document.createElement('div');
       current.className = 'magazine__current';
+
       const cover = document.createElement(data.current.url ? 'a' : 'div');
       cover.className = 'magazine__cover';
       setBackgroundImage(cover, data.current.image);
@@ -682,6 +682,7 @@
       const tbody = document.createElement('tbody');
       season.rows.forEach((row) => {
         const tr = document.createElement('tr');
+
         const rankTd = document.createElement('td');
         rankTd.textContent = row.rank || '-';
         tr.appendChild(rankTd);
@@ -720,7 +721,7 @@
         tbody.appendChild(tr);
       });
 
-      // store season data
+      // store season data for chart/list toggles
       season_rank_chart.push(season);
       if (season.label.includes('上半季')) upper_season_rank = season;
       if (season.label.includes('下半季')) lower_season_rank = season;
@@ -728,8 +729,144 @@
       table.appendChild(tbody);
       card.appendChild(table);
       container.appendChild(card);
+
+      /** Build 3 horizontal bar charts for W/L/T sorted by PCT **/
+function render_season_chart(seasonData, titleText) {
+  const container = document.getElementById("upperSeasonChartContainer");
+  const legendContainer = document.getElementById("teamLegend");
+  const canvasHost = document.getElementById("leagueTrendChart");
+  if (!container) return;
+
+  // Clear old content
+  container.style.display = "block";
+  container.innerHTML = "";
+  if (window.leagueChartWins) { window.leagueChartWins.destroy(); }
+  if (window.leagueChartLosses) { window.leagueChartLosses.destroy(); }
+  if (window.leagueChartTies) { window.leagueChartTies.destroy(); }
+
+  if (!seasonData?.rows?.length) {
+    container.innerHTML = "<p class='empty-state'>No season data to display.</p>";
+    return;
+  }
+
+  const rows = [...seasonData.rows].sort(
+    (a, b) => parseFloat(b.winRate || 0) - parseFloat(a.winRate || 0)
+  );
+
+  const teamColors = {
+    "中信兄弟": "#FFD700",
+    "樂天桃猿": "#E60039",
+    "統一7-ELEVEn獅": "#FF7F27",
+    "台鋼雄鷹": "#009879",
+    "味全龍": "#D60000",
+    "富邦悍將": "#0066CC",
+  };
+
+  const teams = rows.map((r) => r.team);
+  const wins = rows.map((r) => parseInt((r.record || "0-0-0").split("-")[0]));
+  const losses = rows.map((r) => parseInt((r.record || "0-0-0").split("-")[1]));
+  const ties = rows.map((r) => parseInt((r.record || "0-0-0").split("-")[2]));
+
+  // === Create wrapper ===
+  const title = document.createElement("h3");
+  title.textContent = titleText || "球隊戰績圖表";
+  title.style.margin = "12px 0";
+  title.style.fontWeight = "700";
+  container.appendChild(title);
+
+  const chartWrapper = document.createElement("div");
+  chartWrapper.style.display = "grid";
+  chartWrapper.style.gridTemplateColumns = "repeat(3, 1fr)";
+  chartWrapper.style.gap = "20px";
+  chartWrapper.style.alignItems = "start";
+  container.appendChild(chartWrapper);
+
+  // === Helper to make chart ===
+  const makeChart = (label, data, colorFn) => {
+    const canvas = document.createElement("canvas");
+    chartWrapper.appendChild(canvas);
+
+    const bgColors = teams.map((t) => colorFn(t));
+    return new Chart(canvas.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: teams,
+        datasets: [{
+          label,
+          data,
+          backgroundColor: bgColors,
+          borderWidth: 0,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          title: { display: true, text: label, font: { size: 16 } },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.label}: ${ctx.parsed.x}`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            ticks: { precision: 0 },
+            grid: { color: "rgba(0,0,0,.1)" },
+          },
+          y: {
+            grid: { display: false },
+            ticks: { color: "#3d4260", font: { size: 12 } },
+          },
+        },
+      },
     });
   };
+
+  // === Create all 3 ===
+  window.leagueChartWins = makeChart("勝場 (W)", wins, (t) => teamColors[t] || "#007bff");
+  window.leagueChartLosses = makeChart("敗場 (L)", losses, (t) => teamColors[t] + "88");
+  window.leagueChartTies = makeChart("和局 (T)", ties, (t) => teamColors[t] + "55");
+
+  // === Stats summary (PCT / GB / Streak) ===
+  const summary = document.createElement("table");
+  summary.style.marginTop = "16px";
+  summary.style.width = "100%";
+  summary.innerHTML = `
+    <thead>
+      <tr style="text-align:left; background:#f4f6fc;">
+        <th style="padding:6px;">排名</th>
+        <th>球隊</th>
+        <th style="text-align:right;">PCT</th>
+        <th style="text-align:right;">GB</th>
+        <th style="text-align:right;">Streak</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows
+        .map(
+          (r, i) => `
+        <tr>
+          <td style="padding:4px;">${i + 1}</td>
+          <td style="color:${teamColors[r.team] || "#222"};font-weight:600;">${r.team}</td>
+          <td style="text-align:right;">${r.winRate || ""}</td>
+          <td style="text-align:right;">${r.gamesBehind || ""}</td>
+          <td style="text-align:right;">${r.streak || ""}</td>
+        </tr>
+      `
+        )
+        .join("")}
+    </tbody>
+  `;
+  container.appendChild(summary);
+} // <-- close render_season_chart()
+
+// end of data.forEach loop
+}); // closes data.forEach
+} // closes renderStandings
 
   const renderTopFive = (container, groups, emptyMessage) => {
     container.innerHTML = '';
@@ -744,26 +881,33 @@
       metric.className = 'topfive__metric';
       metric.textContent = group.metric || 'Leaderboard';
       card.appendChild(metric);
+
       const table = document.createElement('table');
       const thead = document.createElement('thead');
       thead.innerHTML = '<tr><th>#</th><th>Player</th><th>Team</th><th>Stat</th></tr>';
       table.appendChild(thead);
+
       const tbody = document.createElement('tbody');
       (group.players || []).forEach((player) => {
         const tr = document.createElement('tr');
+
         const rankTd = document.createElement('td');
         rankTd.textContent = player.rank || '';
         tr.appendChild(rankTd);
+
         const nameTd = document.createElement('td');
         const player_url_own = 'show_player_profile.html?player_name=' + player.player;
         nameTd.appendChild(createAnchor(player_url_own, player.player || '', ''));
         tr.appendChild(nameTd);
+
         const teamTd = document.createElement('td');
         teamTd.textContent = player.team || '';
         tr.appendChild(teamTd);
+
         const valueTd = document.createElement('td');
         valueTd.textContent = player.value || '';
         tr.appendChild(valueTd);
+
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
@@ -841,63 +985,223 @@
     }
   };
 
-  /** Render chart (reusable for upper/lower) **/
+  /** TEAM COLORS (kept consistent) **/
+  const teamColors = {
+    "中信兄弟": "#FFD700",
+    "樂天桃猿": "#E60039",
+    "統一7-ELEVEn獅": "#FF7F27",
+    "台鋼雄鷹": "#009879",
+    "味全龍": "#D60000",
+    "富邦悍將": "#0066CC",
+  };
+
+  /** Utility to alpha a hex color **/
+  function hexWithAlpha(hex, a = 1) {
+    if (!hex) return `rgba(0,0,0,${a})`;
+    const m = hex.replace('#','');
+    const bigint = parseInt(m.length === 3 ? m.split('').map(x=>x+x).join('') : m, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  /** Build ranked horizontal list with W/L/T “lines” and metrics on right **/
   function render_season_chart(seasonData, titleText) {
     const container = document.getElementById("upperSeasonChartContainer");
-    const legendContainer = document.getElementById("teamLegend");
-    const canvas = document.getElementById("leagueTrendChart");
-    if (window.leagueChart) window.leagueChart.destroy();
+    if (!container) return;
+
+    // Ensure host elements exist: we’ll hide the canvas and render a list
+    let listHost = document.getElementById("teamRankList");
+    if (!listHost) {
+      // hide the canvas if present
+      const canvas = document.getElementById("leagueTrendChart");
+      if (canvas) canvas.style.display = "none";
+
+      listHost = document.createElement('div');
+      listHost.id = "teamRankList";
+      container.appendChild(listHost);
+    }
+    listHost.innerHTML = "";
+
+    // LEGEND container still available
+    let legendContainer = document.getElementById("teamLegend");
+    if (!legendContainer) {
+      legendContainer = document.createElement('div');
+      legendContainer.id = "teamLegend";
+      container.appendChild(legendContainer);
+    }
     legendContainer.innerHTML = "";
-    if (!seasonData?.rows?.length) return;
 
-    const teamColors = {
-      "中信兄弟": "#FFD700",
-      "樂天桃猿": "#E60039",
-      "統一7-ELEVEn獅": "#FF7F27",
-      "台鋼雄鷹": "#009879",
-      "味全龍": "#D60000",
-      "富邦悍將": "#0066CC",
-    };
+    // Validate + sort by PCT (winRate) desc
+    const rows = (seasonData?.rows || []).slice();
+    if (!rows.length) {
+      container.style.display = "block";
+      listHost.innerHTML = "<p class='empty-state'>No season data to display.</p>";
+      return;
+    }
+    rows.sort((a,b) => parseFloat(b.winRate||0) - parseFloat(a.winRate||0));
 
-    const labels = seasonData.rows.map(t => t.team);
-    const winRates = seasonData.rows.map(t => parseFloat(t.winRate));
-    const ctx = canvas.getContext("2d");
-    window.leagueChart = new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels,
-        datasets: [{
-          label: "勝率 (Win Rate)",
-          data: winRates,
-          backgroundColor: labels.map(team => teamColors[team] || "#888"),
-          borderColor: labels.map(team => teamColors[team] || "#444"),
-          borderWidth: 2,
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { display: false },
-          title: { display: true, text: titleText, font: { size: 18 } }
-        },
-        scales: {
-          y: { beginAtZero: true, max: 1, ticks: { stepSize: 0.1 }, title: { display: true, text: "勝率" } },
-          x: { title: { display: true, text: "球隊名稱" } }
-        }
-      }
+    // Compute a width scale based on each team total games (for W/L/T bars)
+    const totals = rows.map(r => {
+      const [W=0,L=0,T=0] = (r.record||"0-0-0").split("-").map(Number);
+      return { W, L, T, total: (W+L+T) || 1 };
     });
+    const maxTotal = Math.max(...totals.map(t => t.total));
 
-    legendContainer.innerHTML = labels.map(team => `
-      <div class="team-toggle" style="display:flex;align-items:center;gap:6px;">
-        <div style="width:18px;height:18px;border-radius:4px;background:${teamColors[team]};border:1px solid #ccc;"></div>
-        <span style="font-weight:600;">${team}</span>
-      </div>
-    `).join('');
+    // Title
+    const heading = document.createElement('div');
+    heading.style.display = "flex";
+    heading.style.alignItems = "center";
+    heading.style.gap = "12px";
+    heading.style.margin = "8px 0 12px 0";
+    heading.style.fontWeight = "700";
+    heading.style.fontSize = "1.05rem";
+    heading.textContent = titleText || "球隊戰績圖表";
+    listHost.appendChild(heading);
+
+    // Header row (grid labels)
+    const header = document.createElement('div');
+    header.style.display = "grid";
+    header.style.gridTemplateColumns = "40px minmax(160px,1fr) minmax(260px,2fr) 90px 70px 90px";
+    header.style.fontSize = ".85rem";
+    header.style.color = "#5f6785";
+    header.style.marginBottom = "6px";
+    header.innerHTML = `
+      <span>#</span>
+      <span>Team</span>
+      <span>W / L / T</span>
+      <span style="text-align:right;">PCT</span>
+      <span style="text-align:right;">GB</span>
+      <span style="text-align:right;">Streak</span>
+    `;
+    listHost.appendChild(header);
+
+    // Each row
+    rows.forEach((r, idx) => {
+      const color = teamColors[r.team] || "#708090";
+      const [W=0, L=0, T=0] = (r.record || "0-0-0").split("-").map(Number);
+      const total = (W+L+T) || 1;
+
+      // widths normalized to the largest total (keeps visual comparability)
+      const wW = Math.max(2, Math.round((W / maxTotal) * 100));
+      const wL = Math.max(2, Math.round((L / maxTotal) * 100));
+      const wT = Math.max(2, Math.round((T / maxTotal) * 100));
+
+      const rowEl = document.createElement('div');
+      rowEl.className = "rank-line";
+      rowEl.style.display = "grid";
+      rowEl.style.gridTemplateColumns = "40px minmax(160px,1fr) minmax(260px,2fr) 90px 70px 90px";
+      rowEl.style.alignItems = "center";
+      rowEl.style.gap = "12px";
+      rowEl.style.padding = "10px 10px";
+      rowEl.style.borderRadius = "10px";
+      rowEl.style.border = "1px solid rgba(41,56,125,.08)";
+      rowEl.style.background = "linear-gradient(180deg, rgba(245,247,255,.55), rgba(255,255,255,.6))";
+      rowEl.style.marginBottom = "8px";
+
+      const rank = document.createElement('div');
+      rank.textContent = String(idx + 1);
+      rank.style.fontWeight = "700";
+
+      const teamCell = document.createElement('div');
+      teamCell.style.display = "flex";
+      teamCell.style.alignItems = "center";
+      teamCell.style.gap = "10px";
+      // logo
+      const logo = document.createElement('span');
+      logo.className = "team-logo";
+      logo.style.width = "28px";
+      logo.style.height = "28px";
+      logo.style.borderRadius = "50%";
+      logo.style.background = `${hexWithAlpha(color, .15)}`;
+      logo.style.border = "1px solid rgba(0,0,0,.05)";
+      if (r.logo) logo.style.background = `#fff url('${r.logo}') center/contain no-repeat`;
+      const name = document.createElement('span');
+      name.textContent = r.team || "Team";
+      name.style.fontWeight = "600";
+      name.style.color = color;
+      teamCell.appendChild(logo);
+      teamCell.appendChild(name);
+
+      // W/L/T bars area
+      const bands = document.createElement('div');
+      bands.style.display = "flex";
+      bands.style.alignItems = "center";
+      bands.style.gap = "10px";
+
+      const bandWrap = (label, width, bg, text) => {
+        const wrap = document.createElement('div');
+        wrap.style.display = 'flex';
+        wrap.style.alignItems = 'center';
+        wrap.style.gap = '6px';
+
+        const bar = document.createElement('div');
+        bar.style.height = "8px";
+        bar.style.width = `${width}px`;
+        bar.style.minWidth = "20px";
+        bar.style.borderRadius = "6px";
+        bar.style.background = bg;
+
+        const t = document.createElement('span');
+        t.style.fontSize = ".85rem";
+        t.style.color = "#3d4260";
+        t.textContent = `${label}:${text}`;
+
+        wrap.appendChild(bar);
+        wrap.appendChild(t);
+        return wrap;
+      };
+
+      // team color variants for W/L/T
+      const wColor = hexWithAlpha(color, .95);  // solid for wins
+      const lColor = hexWithAlpha(color, .35);  // lighter for losses
+      const tColor = hexWithAlpha(color, .20);  // lightest for ties
+
+      bands.appendChild(bandWrap('W', wW, wColor, W));
+      bands.appendChild(bandWrap('L', wL, lColor, L));
+      bands.appendChild(bandWrap('T', wT, tColor, T));
+
+      // Right metrics
+      const pct = document.createElement('div');
+      pct.textContent = r.winRate ?? '';
+      pct.style.textAlign = 'right';
+      pct.style.fontVariantNumeric = "tabular-nums";
+      pct.style.fontWeight = "600";
+
+      const gb = document.createElement('div');
+      gb.textContent = r.gamesBehind ?? '';
+      gb.style.textAlign = 'right';
+      gb.style.fontVariantNumeric = "tabular-nums";
+
+      const streak = document.createElement('div');
+      streak.textContent = r.streak ?? '';
+      streak.style.textAlign = 'right';
+      streak.style.fontVariantNumeric = "tabular-nums";
+
+      rowEl.appendChild(rank);
+      rowEl.appendChild(teamCell);
+      rowEl.appendChild(bands);
+      rowEl.appendChild(pct);
+      rowEl.appendChild(gb);
+      rowEl.appendChild(streak);
+
+      listHost.appendChild(rowEl);
+
+      // legend (team color chips)
+      const chip = document.createElement('div');
+      chip.style.display = 'inline-flex';
+      chip.style.alignItems = 'center';
+      chip.style.gap = '6px';
+      chip.style.margin = '4px 10px 0 0';
+      chip.innerHTML = `<span style="width:14px;height:14px;border-radius:4px;background:${color};display:inline-block;border:1px solid rgba(0,0,0,.15);"></span><span style="font-size:.85rem;">${r.team}</span>`;
+      legendContainer.appendChild(chip);
+    });
 
     container.style.display = "block";
   }
 
-  /** Toggle Buttons **/
+  /** Toggle Buttons (upper / lower) **/
   document.addEventListener("DOMContentLoaded", () => {
     const upperBtn = document.getElementById("toggleUpperChartBtn");
     const lowerBtn = document.getElementById("toggleLowerChartBtn");
@@ -908,22 +1212,25 @@
     upperBtn?.addEventListener("click", () => {
       showUpper = !showUpper;
       if (showUpper) {
+        // if lower is on, turn it off to avoid confusion (optional)
+        if (showLower) { showLower = false; if (lowerBtn) lowerBtn.innerHTML = `<i class="ri-bar-chart-line"></i> 顯示下半季戰績圖表`; }
         upperBtn.innerHTML = `<i class="ri-eye-off-line"></i> 隱藏上半季戰績圖表`;
-        render_season_chart(upper_season_rank, "2025 上半季 勝率排行圖表");
+        render_season_chart(upper_season_rank, "2025 上半季 球隊戰績（PCT 排序）");
       } else {
         upperBtn.innerHTML = `<i class="ri-bar-chart-line"></i> 顯示上半季戰績圖表`;
-        container.style.display = "none";
+        if (container) container.style.display = "none";
       }
     });
 
     lowerBtn?.addEventListener("click", () => {
       showLower = !showLower;
       if (showLower) {
+        if (showUpper) { showUpper = false; if (upperBtn) upperBtn.innerHTML = `<i class="ri-bar-chart-line"></i> 顯示上半季戰績圖表`; }
         lowerBtn.innerHTML = `<i class="ri-eye-off-line"></i> 隱藏下半季戰績圖表`;
-        render_season_chart(lower_season_rank, "2025 下半季 勝率排行圖表");
+        render_season_chart(lower_season_rank, "2025 下半季 球隊戰績（PCT 排序）");
       } else {
         lowerBtn.innerHTML = `<i class="ri-bar-chart-line"></i> 顯示下半季戰績圖表`;
-        container.style.display = "none";
+        if (container) container.style.display = "none";
       }
     });
   });
@@ -937,6 +1244,7 @@
   loadData();
 })();
 </script>
+
 
 
 
