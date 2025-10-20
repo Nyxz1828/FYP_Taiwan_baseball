@@ -550,587 +550,394 @@
 
 
   
-  <script>
-    (function () {
-      const ENDPOINT = 'http://localhost:3000/home';
-      const AUTO_REFRESH_MS = 120000;
+<script>
+(function () {
+  const ENDPOINT = 'http://localhost:3000/home';
+  const AUTO_REFRESH_MS = 120000;
 
-      const els = {
-        status: document.getElementById('status'),
-        updatedAt: document.getElementById('updatedAt'),
-        refresh: document.getElementById('refresh'),
-        magazine: document.getElementById('magazineContent'),
-        standing: document.getElementById('standingContent'),
-        pitching: document.getElementById('pitchingContent'),
-        batting: document.getElementById('battingContent'),
-        news: document.getElementById('newsContent'),
-      };
+  const els = {
+    status: document.getElementById('status'),
+    updatedAt: document.getElementById('updatedAt'),
+    refresh: document.getElementById('refresh'),
+    magazine: document.getElementById('magazineContent'),
+    standing: document.getElementById('standingContent'),
+    pitching: document.getElementById('pitchingContent'),
+    batting: document.getElementById('battingContent'),
+    news: document.getElementById('newsContent'),
+  };
 
-      let refreshTimer;
+  let refreshTimer;
+  let season_rank_chart = [];
+  let upper_season_rank = [];
+  let lower_season_rank = [];
 
-      // declare varables
-      let season_rank_chart = [];
-      let upper_season_rank = [];
-      let lower_season_rank = [];
+  const createAnchor = (url, text, className) => {
+    const el = document.createElement(url ? 'a' : 'span');
+    if (className) el.className = className;
+    el.textContent = text || '';
+    if (url) {
+      el.href = url;
+      el.target = '_blank';
+      el.rel = 'noopener noreferrer';
+    }
+    return el;
+  };
 
-      const createAnchor = (url, text, className) => {
-        const el = document.createElement(url ? 'a' : 'span');
-        if (className) el.className = className;
-        el.textContent = text || '';
-        if (url) {
-          el.href = url;
-          el.target = '_blank';
-          el.rel = 'noopener noreferrer';
+  const createEmpty = (message) => {
+    const p = document.createElement('p');
+    p.className = 'empty-state';
+    p.textContent = message;
+    return p;
+  };
+
+  const setBackgroundImage = (el, url) => {
+    if (url) {
+      el.style.backgroundImage = `url('${url}')`;
+    }
+  };
+
+  const renderMagazine = (data) => {
+    const container = els.magazine;
+    container.innerHTML = '';
+    if (!data || (!data.current && (!Array.isArray(data.history) || !data.history.length))) {
+      container.appendChild(createEmpty('No magazine data available right now.'));
+      return;
+    }
+
+    if (data.current) {
+      const current = document.createElement('div');
+      current.className = 'magazine__current';
+      const cover = document.createElement(data.current.url ? 'a' : 'div');
+      cover.className = 'magazine__cover';
+      setBackgroundImage(cover, data.current.image);
+      if (data.current.url) {
+        cover.href = data.current.url;
+        cover.target = '_blank';
+        cover.rel = 'noopener noreferrer';
+      }
+      cover.title = data.current.title || 'Magazine cover';
+
+      const info = document.createElement('div');
+      info.className = 'magazine__info';
+      info.appendChild(createAnchor(data.current.url, data.current.title || 'Current magazine', 'magazine__title'));
+      if (data.current.period) {
+        const period = document.createElement('div');
+        period.className = 'magazine__period';
+        period.textContent = data.current.period;
+        info.appendChild(period);
+      }
+      if (data.current.description) {
+        const desc = document.createElement('p');
+        desc.className = 'magazine__desc';
+        desc.textContent = data.current.description;
+        info.appendChild(desc);
+      }
+
+      current.appendChild(cover);
+      current.appendChild(info);
+      container.appendChild(current);
+    }
+
+    if (Array.isArray(data.history) && data.history.length) {
+      const history = document.createElement('div');
+      history.className = 'magazine__history';
+      const heading = document.createElement('div');
+      heading.textContent = 'Recent issues';
+      history.appendChild(heading);
+      const list = document.createElement('ul');
+      data.history.forEach((issue) => {
+        const li = document.createElement('li');
+        li.appendChild(createAnchor(issue.url, issue.title, ''));
+        list.appendChild(li);
+      });
+      history.appendChild(list);
+      container.appendChild(history);
+    }
+  };
+
+  const renderStandings = (data) => {
+    const container = els.standing;
+    container.innerHTML = '';
+    const hasRows = Array.isArray(data) && data.some((season) => Array.isArray(season.rows) && season.rows.length);
+    if (!hasRows) {
+      container.appendChild(createEmpty('No standings available.'));
+      return;
+    }
+
+    data.forEach((season) => {
+      if (!season || !Array.isArray(season.rows) || !season.rows.length) return;
+      const card = document.createElement('article');
+      card.className = 'standing__card';
+
+      const title = document.createElement('h3');
+      title.textContent = season.label || 'Standings';
+      card.appendChild(title);
+
+      const table = document.createElement('table');
+      const thead = document.createElement('thead');
+      thead.innerHTML =
+        '<tr><th>#</th><th>Team</th><th>G</th><th>W-L-T</th><th>PCT</th><th>GB</th><th>Streak</th></tr>';
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      season.rows.forEach((row) => {
+        const tr = document.createElement('tr');
+        const rankTd = document.createElement('td');
+        rankTd.textContent = row.rank || '-';
+        tr.appendChild(rankTd);
+
+        const teamTd = document.createElement('td');
+        teamTd.className = 'team-cell';
+        if (row.logo) {
+          const logo = document.createElement('span');
+          logo.className = 'team-logo';
+          setBackgroundImage(logo, row.logo);
+          teamTd.appendChild(logo);
         }
-        return el;
-      };
+        teamTd.appendChild(createAnchor(row.teamUrl, row.team || 'Team', 'team-name'));
+        tr.appendChild(teamTd);
 
-      const createEmpty = (message) => {
-        const p = document.createElement('p');
-        p.className = 'empty-state';
-        p.textContent = message;
-        return p;
-      };
+        const gamesTd = document.createElement('td');
+        gamesTd.textContent = row.games || '';
+        tr.appendChild(gamesTd);
 
-      const setBackgroundImage = (el, url) => {
-        if (url) {
-          el.style.backgroundImage = `url('${url}')`;
-        }
-      };
+        const recordTd = document.createElement('td');
+        recordTd.textContent = row.record || '';
+        tr.appendChild(recordTd);
 
-      const renderMagazine = (data) => {
-        const container = els.magazine;
-        container.innerHTML = '';
-        if (!data || (!data.current && (!Array.isArray(data.history) || !data.history.length))) {
-          container.appendChild(createEmpty('No magazine data available right now.'));
-          return;
-        }
+        const pctTd = document.createElement('td');
+        pctTd.textContent = row.winRate || '';
+        tr.appendChild(pctTd);
 
-        if (data.current) {
-          const current = document.createElement('div');
-          current.className = 'magazine__current';
+        const gbTd = document.createElement('td');
+        gbTd.textContent = row.gamesBehind || '';
+        tr.appendChild(gbTd);
 
-          const cover = document.createElement(data.current.url ? 'a' : 'div');
-          cover.className = 'magazine__cover';
-          setBackgroundImage(cover, data.current.image);
-          if (data.current.url) {
-            cover.href = data.current.url;
-            cover.target = '_blank';
-            cover.rel = 'noopener noreferrer';
-          }
-          cover.title = data.current.title || 'Magazine cover';
+        const streakTd = document.createElement('td');
+        streakTd.textContent = row.streak || '';
+        tr.appendChild(streakTd);
 
-          const info = document.createElement('div');
-          info.className = 'magazine__info';
-
-          info.appendChild(createAnchor(data.current.url, data.current.title || 'Current magazine', 'magazine__title'));
-          if (data.current.period) {
-            const period = document.createElement('div');
-            period.className = 'magazine__period';
-            period.textContent = data.current.period;
-            info.appendChild(period);
-          }
-          if (data.current.description) {
-            const desc = document.createElement('p');
-            desc.className = 'magazine__desc';
-            desc.textContent = data.current.description;
-            info.appendChild(desc);
-          }
-
-          current.appendChild(cover);
-          current.appendChild(info);
-          container.appendChild(current);
-        }
-
-        if (Array.isArray(data.history) && data.history.length) {
-          const history = document.createElement('div');
-          history.className = 'magazine__history';
-
-          const heading = document.createElement('div');
-          heading.textContent = 'Recent issues';
-          history.appendChild(heading);
-
-          const list = document.createElement('ul');
-          data.history.forEach((issue) => {
-            const li = document.createElement('li');
-            li.appendChild(createAnchor(issue.url, issue.title, ''));
-            list.appendChild(li);
-          });
-          history.appendChild(list);
-          container.appendChild(history);
-        }
-      };
-
-      const renderStandings = (data) => {
-        const container = els.standing;
-        container.innerHTML = '';
-        const hasRows = Array.isArray(data) && data.some((season) => Array.isArray(season.rows) && season.rows.length);
-        if (!hasRows) {
-          container.appendChild(createEmpty('No standings available.'));
-          return;
-        }
-
-        data.forEach((season) => {
-          if (!season || !Array.isArray(season.rows) || !season.rows.length) return;
-          const card = document.createElement('article');
-          card.className = 'standing__card';
-
-          const title = document.createElement('h3');
-          title.textContent = season.label || 'Standings';
-          card.appendChild(title);
-
-          const table = document.createElement('table');
-          const thead = document.createElement('thead');
-          thead.innerHTML = '<tr><th>#</th><th>Team</th><th>G</th><th>W-L-T</th><th>PCT</th><th>GB</th><th>Streak</th></tr>';
-          table.appendChild(thead);
-
-          const tbody = document.createElement('tbody');
-          season.rows.forEach((row) => {
-            const tr = document.createElement('tr');
-
-            const rankTd = document.createElement('td');
-            rankTd.textContent = row.rank || '-';
-            tr.appendChild(rankTd);
-
-            
-
-            const teamTd = document.createElement('td');
-            teamTd.className = 'team-cell';
-            if (row.logo) {
-              const logo = document.createElement('span');
-              logo.className = 'team-logo';
-              setBackgroundImage(logo, row.logo);
-              teamTd.appendChild(logo);
-            }
-            teamTd.appendChild(createAnchor(row.teamUrl, row.team || 'Team', 'team-name'));
-            tr.appendChild(teamTd);
-
-            const gamesTd = document.createElement('td');
-            gamesTd.textContent = row.games || '';
-            tr.appendChild(gamesTd);
-
-            const recordTd = document.createElement('td');
-            recordTd.textContent = row.record || '';
-            tr.appendChild(recordTd);
-
-            const pctTd = document.createElement('td');
-            pctTd.textContent = row.winRate || '';
-            tr.appendChild(pctTd);
-
-            const gbTd = document.createElement('td');
-            gbTd.textContent = row.gamesBehind || '';
-            tr.appendChild(gbTd);
-
-            const streakTd = document.createElement('td');
-            streakTd.textContent = row.streak || '';
-            tr.appendChild(streakTd);
-
-            tbody.appendChild(tr);
-          });
-            //   上半季 season_rank_chart for rendering chart
-            season_rank_chart.push(season);
-            if (season_rank_chart[season_rank_chart.length - 1].label.includes('上半季')) {
-              upper_season_rank = season_rank_chart[season_rank_chart.length - 1];
-            }
-            //   下半季 season_rank_chart for rendering chart
-            if (season_rank_chart[season_rank_chart.length - 1].label.includes('下半季')) {
-              lower_season_rank = season_rank_chart[season_rank_chart.length - 1];
-            }
-
-
-            //TESTING
-            console.log('season_rank_chart', upper_season_rank.rows);
-            console.log('reprint');
-
-  
-
-
-          table.appendChild(tbody);
-          card.appendChild(table);
-          
-          
-
-          container.appendChild(card);
-        });
-
-
-        
-      };
-
-      const renderTopFive = (container, groups, emptyMessage) => {
-        container.innerHTML = '';
-        if (!Array.isArray(groups) || !groups.length) {
-          container.appendChild(createEmpty(emptyMessage));
-          return;
-        }
-
-        groups.forEach((group) => {
-          const card = document.createElement('article');
-          card.className = 'topfive';
-
-          const metric = document.createElement('div');
-          metric.className = 'topfive__metric';
-          metric.textContent = group.metric || 'Leaderboard';
-          card.appendChild(metric);
-
-          const table = document.createElement('table');
-          const thead = document.createElement('thead');
-          thead.innerHTML = '<tr><th>#</th><th>Player</th><th>Team</th><th>Stat</th></tr>';
-          table.appendChild(thead);
-
-          const tbody = document.createElement('tbody');
-          (group.players || []).forEach((player) => {
-            const tr = document.createElement('tr');
-
-            const rankTd = document.createElement('td');
-            rankTd.textContent = player.rank || '';
-            tr.appendChild(rankTd);
-
-            const nameTd = document.createElement('td');
-            const player_url_own = 'show_player_profile.html?player_name='+ player.player
-            nameTd.appendChild(createAnchor(player_url_own, player.player || '', ''));
-            console.log('player change into', player.playerUrl, 'into', 'show_player_profile.html?player_name=', player.player);
-            tr.appendChild(nameTd);
-
-            const teamTd = document.createElement('td');
-            teamTd.textContent = player.team || '';
-            tr.appendChild(teamTd);
-
-            const valueTd = document.createElement('td');
-            valueTd.textContent = player.value || '';
-            tr.appendChild(valueTd);
-
-            tbody.appendChild(tr);
-          });
-          table.appendChild(tbody);
-          card.appendChild(table);
-          container.appendChild(card);
-        });
-      };
-
-      const renderNews = (data) => {
-        const container = els.news;
-        container.innerHTML = '';
-        const hasFocus = data && data.focus;
-        const hasItems = data && Array.isArray(data.items) && data.items.length;
-        if (!hasFocus && !hasItems) {
-          container.appendChild(createEmpty('No news posted yet.'));
-          return;
-        }
-
-        if (hasFocus) {
-          const focus = document.createElement('article');
-          focus.className = 'news__focus';
-
-          const img = document.createElement(data.focus.url ? 'a' : 'div');
-          img.className = 'news__image';
-          setBackgroundImage(img, data.focus.image);
-          if (data.focus.url) {
-            img.href = data.focus.url;
-            img.target = '_blank';
-            img.rel = 'noopener noreferrer';
-          }
-          img.title = data.focus.title || 'News image';
-
-          const details = document.createElement('div');
-          details.className = 'news__details';
-
-          const title = document.createElement('h3');
-          title.className = 'news__title';
-          const titleLink = createAnchor(data.focus.url, data.focus.title || 'Featured news', '');
-          title.appendChild(titleLink);
-          details.appendChild(title);
-
-          if (data.focus.date || (data.focus.tags && data.focus.tags.length)) {
-            const meta = document.createElement('div');
-            meta.className = 'news__meta';
-            if (data.focus.date) {
-              const date = document.createElement('span');
-              date.textContent = data.focus.date;
-              meta.appendChild(date);
-            }
-            if (Array.isArray(data.focus.tags) && data.focus.tags.length) {
-              const tags = document.createElement('div');
-              tags.className = 'news__tags';
-              data.focus.tags.forEach((tag) => {
-                tags.appendChild(createAnchor(tag.url, tag.title, ''));
-              });
-              meta.appendChild(tags);
-            }
-            details.appendChild(meta);
-          }
-
-          if (data.focus.description) {
-            const desc = document.createElement('p');
-            desc.className = 'news__desc';
-            desc.textContent = data.focus.description;
-            details.appendChild(desc);
-          }
-
-          focus.appendChild(img);
-          focus.appendChild(details);
-          container.appendChild(focus);
-        }
-
-        if (hasItems) {
-          const list = document.createElement('div');
-          list.className = 'news__list';
-          data.items.forEach((item) => {
-            const card = document.createElement('article');
-            card.className = 'news__card';
-
-            const img = document.createElement(item.url ? 'a' : 'div');
-            img.className = 'news__image';
-            setBackgroundImage(img, item.image);
-            if (item.url) {
-              img.href = item.url;
-              img.target = '_blank';
-              img.rel = 'noopener noreferrer';
-            }
-            card.appendChild(img);
-
-            const title = document.createElement('h4');
-            title.className = 'news__title';
-            title.appendChild(createAnchor(item.url, item.title || 'News', ''));
-            card.appendChild(title);
-
-            list.appendChild(card);
-          });
-          container.appendChild(list);
-        }
-      };
-
-      const scheduleRefresh = () => {
-        if (refreshTimer) {
-          clearTimeout(refreshTimer);
-        }
-        refreshTimer = setTimeout(loadData, AUTO_REFRESH_MS);
-      };
-
-      const loadData = async () => {
-        if (refreshTimer) {
-          clearTimeout(refreshTimer);
-        }
-        els.refresh.disabled = true;
-        els.status.textContent = 'Fetching latest data...';
-
-        try {
-          const response = await fetch(ENDPOINT, { cache: 'no-store' });
-          if (!response.ok) {
-            throw new Error(`Server returned ${response.status}`);
-          }
-          const json = await response.json();
-
-          renderMagazine(json.magazines);
-          renderStandings(json.standings);
-          renderTopFive(els.pitching, json.pitchingTop5, 'No pitching leaderboard data.');
-          renderTopFive(els.batting, json.battingTop5, 'No batting leaderboard data.');
-          renderNews(json.news);
-
-          els.status.textContent = 'Data refreshed.';
-          const timestamp = json.fetchedAt ? new Date(json.fetchedAt) : new Date();
-          els.updatedAt.textContent = `Last updated: ${timestamp.toLocaleString()}`;
-        } catch (err) {
-          console.error(err);
-          els.status.textContent = `Error fetching data: ${err.message}`;
-          els.updatedAt.textContent = 'Last updated: failed';
-          els.magazine.innerHTML = '';
-          els.standing.innerHTML = '';
-          els.pitching.innerHTML = '';
-          els.batting.innerHTML = '';
-          els.news.innerHTML = '';
-          els.magazine.appendChild(createEmpty('Unable to load data.'));
-          els.standing.appendChild(createEmpty('Unable to load data.'));
-          els.pitching.appendChild(createEmpty('Unable to load data.'));
-          els.batting.appendChild(createEmpty('Unable to load data.'));
-          els.news.appendChild(createEmpty('Unable to load data.'));
-        } finally {
-          els.refresh.disabled = false;
-          scheduleRefresh();
-        }
-      };
-
-
-                /**
-          * Render CPBL Upper Season Chart
-          * @param {Object} upper_season_rank - Object containing a `rows` array of team data
-          * Example: upper_season_rank.rows = [{team, winRate, rank, logo, ...}, ...]
-          */
-          function render_upper_season_chart(upper_season_rank) {
-            console.log("🎯 Rendering upper season chart...", upper_season_rank);
-
-            const container = document.getElementById("upperSeasonChartContainer");
-            const legendContainer = document.getElementById("teamLegend");
-            const canvas = document.getElementById("leagueTrendChart");
-
-            // Clean up previous chart if exists
-            if (window.leagueChart) {
-              window.leagueChart.destroy();
-            }
-            legendContainer.innerHTML = "";
-
-            // === 1️⃣ Validate data ===
-            const seasonData = upper_season_rank?.rows || [];
-            if (!seasonData.length) {
-              console.warn("⚠️ No season data found for chart.");
-              return;
-            }
-
-            // === 2️⃣ Define team colors ===
-            const teamColors = {
-              "中信兄弟": "#FFD700",
-              "樂天桃猿": "#E60039",
-              "統一7-ELEVEn獅": "#FF7F27",
-              "台鋼雄鷹": "#009879",
-              "味全龍": "#D60000",
-              "富邦悍將": "#0066CC",
-            };
-
-            // === 3️⃣ Prepare datasets ===
-            const labels = seasonData.map(t => t.team);
-            const winRates = seasonData.map(t => parseFloat(t.winRate));
-
-            const datasets = seasonData.map((team, idx) => ({
-              label: team.team,
-              data: [parseFloat(team.winRate)],
-              borderColor: teamColors[team.team] || `hsl(${idx * 60},70%,50%)`,
-              backgroundColor: teamColors[team.team] || `hsl(${idx * 60},70%,50%)`,
-              fill: false,
-              borderWidth: 3,
-              tension: 0.4,
-            }));
-
-            // === 4️⃣ Create Chart.js chart ===
-            const ctx = canvas.getContext("2d");
-            window.leagueChart = new Chart(ctx, {
-              type: "bar",
-              data: {
-                labels: labels,
-                datasets: [{
-                  label: "勝率 (Win Rate)",
-                  data: winRates,
-                  backgroundColor: labels.map((team, idx) => teamColors[team] || `hsl(${idx * 60},70%,60%)`),
-                  borderColor: labels.map((team, idx) => teamColors[team] || `hsl(${idx * 60},70%,40%)`),
-                  borderWidth: 2,
-                }]
-              },
-              options: {
-                responsive: true,
-                plugins: {
-                  legend: { display: false },
-                  tooltip: {
-                    callbacks: {
-                      label: ctx => `${ctx.label}: ${ctx.parsed.y}`,
-                    },
-                  },
-                  title: {
-                    display: true,
-                    text: "2025 上半季 勝率排行圖表",
-                    font: { size: 18 }
-                  }
-                },
-                scales: {
-                  y: {
-                    beginAtZero: true,
-                    max: 1,
-                    ticks: { stepSize: 0.1 },
-                    title: { display: true, text: "勝率" },
-                  },
-                  x: { title: { display: true, text: "球隊名稱" } },
-                },
-              },
-            });
-
-            // === 5️⃣ Create custom legend (team color toggle) ===
-            seasonData.forEach(team => {
-              const color = teamColors[team.team] || "#999";
-              const item = document.createElement("div");
-              item.classList.add("team-toggle");
-              item.style.display = "flex";
-              item.style.alignItems = "center";
-              item.style.cursor = "pointer";
-              item.style.gap = "6px";
-              item.dataset.team = team.team;
-              item.innerHTML = `
-                <div class="color-box" style="
-                  width:18px;height:18px;
-                  border-radius:4px;
-                  background:${color};
-                  border:1px solid #ccc;
-                  transition:opacity 0.2s;">
-                </div>
-                <span style="font-weight:600;">${team.team}</span>
-              `;
-              legendContainer.appendChild(item);
-            });
-
-            // === 6️⃣ Add toggle behavior for bars ===
-            document.querySelectorAll(".team-toggle").forEach(el => {
-              el.addEventListener("click", () => {
-                const teamName = el.dataset.team;
-                const teamIndex = labels.indexOf(teamName);
-                const colorBox = el.querySelector(".color-box");
-
-                // Toggle visibility by making bar transparent
-                const currentAlpha = window.leagueChart.data.datasets[0].backgroundColor[teamIndex].includes("rgba")
-                  ? window.leagueChart.data.datasets[0].backgroundColor[teamIndex]
-                  : Chart.helpers.color(window.leagueChart.data.datasets[0].backgroundColor[teamIndex]).alpha(1).rgbString();
-
-                const hidden = colorBox.style.opacity === "0.3";
-                colorBox.style.opacity = hidden ? "1" : "0.3";
-
-                // Set alpha on dataset color
-                const newColor = hidden
-                  ? teamColors[teamName]
-                  : Chart.helpers.color(teamColors[teamName]).alpha(0.2).rgbString();
-
-                window.leagueChart.data.datasets[0].backgroundColor[teamIndex] = newColor;
-                window.leagueChart.update();
-              });
-            });
-
-            // === 7️⃣ Reveal chart section ===
-            container.style.display = "block";
-            console.log("✅ Upper season chart rendered successfully!");
-          }
-          document.addEventListener("DOMContentLoaded", () => {
-            const showBtn = document.getElementById("toggleSeasonChartBtn");
-            const container = document.getElementById("upperSeasonChartContainer");
-            let isShown = false;
-
-            showBtn.addEventListener("click", () => {
-              isShown = !isShown;
-              if (isShown) {
-                showBtn.innerHTML = `<i class="ri-eye-off-line"></i> 隱藏上半季戰績圖表`;
-                console.log("Button clicked: Show Upper Season Chart");
-                render_upper_season_chart(upper_season_rank);
-              } else {
-                showBtn.innerHTML = `<i class="ri-bar-chart-line"></i> 顯示上半季戰績圖表`;
-                container.style.display = "none";
-              }
-            });
-          });
-
-
-
-            
-
-
-      els.refresh.addEventListener('click', loadData);
-
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-          if (refreshTimer) {
-            clearTimeout(refreshTimer);
-          }
-        } else {
-          loadData();
-        }
+        tbody.appendChild(tr);
       });
 
-      loadData();
-    })();
-  </script>
+      // store season data
+      season_rank_chart.push(season);
+      if (season.label.includes('上半季')) upper_season_rank = season;
+      if (season.label.includes('下半季')) lower_season_rank = season;
+
+      table.appendChild(tbody);
+      card.appendChild(table);
+      container.appendChild(card);
+    });
+  };
+
+  const renderTopFive = (container, groups, emptyMessage) => {
+    container.innerHTML = '';
+    if (!Array.isArray(groups) || !groups.length) {
+      container.appendChild(createEmpty(emptyMessage));
+      return;
+    }
+    groups.forEach((group) => {
+      const card = document.createElement('article');
+      card.className = 'topfive';
+      const metric = document.createElement('div');
+      metric.className = 'topfive__metric';
+      metric.textContent = group.metric || 'Leaderboard';
+      card.appendChild(metric);
+      const table = document.createElement('table');
+      const thead = document.createElement('thead');
+      thead.innerHTML = '<tr><th>#</th><th>Player</th><th>Team</th><th>Stat</th></tr>';
+      table.appendChild(thead);
+      const tbody = document.createElement('tbody');
+      (group.players || []).forEach((player) => {
+        const tr = document.createElement('tr');
+        const rankTd = document.createElement('td');
+        rankTd.textContent = player.rank || '';
+        tr.appendChild(rankTd);
+        const nameTd = document.createElement('td');
+        const player_url_own = 'show_player_profile.html?player_name=' + player.player;
+        nameTd.appendChild(createAnchor(player_url_own, player.player || '', ''));
+        tr.appendChild(nameTd);
+        const teamTd = document.createElement('td');
+        teamTd.textContent = player.team || '';
+        tr.appendChild(teamTd);
+        const valueTd = document.createElement('td');
+        valueTd.textContent = player.value || '';
+        tr.appendChild(valueTd);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      card.appendChild(table);
+      container.appendChild(card);
+    });
+  };
+
+  const renderNews = (data) => {
+    const container = els.news;
+    container.innerHTML = '';
+    const hasFocus = data && data.focus;
+    const hasItems = data && Array.isArray(data.items) && data.items.length;
+    if (!hasFocus && !hasItems) {
+      container.appendChild(createEmpty('No news posted yet.'));
+      return;
+    }
+    if (hasFocus) {
+      const focus = document.createElement('article');
+      focus.className = 'news__focus';
+      const img = document.createElement(data.focus.url ? 'a' : 'div');
+      img.className = 'news__image';
+      setBackgroundImage(img, data.focus.image);
+      if (data.focus.url) {
+        img.href = data.focus.url;
+        img.target = '_blank';
+        img.rel = 'noopener noreferrer';
+      }
+      const details = document.createElement('div');
+      details.className = 'news__details';
+      const title = document.createElement('h3');
+      title.className = 'news__title';
+      title.appendChild(createAnchor(data.focus.url, data.focus.title || 'Featured news', ''));
+      details.appendChild(title);
+      if (data.focus.description) {
+        const desc = document.createElement('p');
+        desc.className = 'news__desc';
+        desc.textContent = data.focus.description;
+        details.appendChild(desc);
+      }
+      focus.appendChild(img);
+      focus.appendChild(details);
+      container.appendChild(focus);
+    }
+  };
+
+  const scheduleRefresh = () => {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(loadData, AUTO_REFRESH_MS);
+  };
+
+  const loadData = async () => {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    els.refresh.disabled = true;
+    els.status.textContent = 'Fetching latest data...';
+    try {
+      const response = await fetch(ENDPOINT, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`Server returned ${response.status}`);
+      const json = await response.json();
+      renderMagazine(json.magazines);
+      renderStandings(json.standings);
+      renderTopFive(els.pitching, json.pitchingTop5, 'No pitching leaderboard data.');
+      renderTopFive(els.batting, json.battingTop5, 'No batting leaderboard data.');
+      renderNews(json.news);
+      els.status.textContent = 'Data refreshed.';
+      const timestamp = json.fetchedAt ? new Date(json.fetchedAt) : new Date();
+      els.updatedAt.textContent = `Last updated: ${timestamp.toLocaleString()}`;
+    } catch (err) {
+      console.error(err);
+      els.status.textContent = `Error fetching data: ${err.message}`;
+      els.updatedAt.textContent = 'Last updated: failed';
+    } finally {
+      els.refresh.disabled = false;
+      scheduleRefresh();
+    }
+  };
+
+  /** Render chart (reusable for upper/lower) **/
+  function render_season_chart(seasonData, titleText) {
+    const container = document.getElementById("upperSeasonChartContainer");
+    const legendContainer = document.getElementById("teamLegend");
+    const canvas = document.getElementById("leagueTrendChart");
+    if (window.leagueChart) window.leagueChart.destroy();
+    legendContainer.innerHTML = "";
+    if (!seasonData?.rows?.length) return;
+
+    const teamColors = {
+      "中信兄弟": "#FFD700",
+      "樂天桃猿": "#E60039",
+      "統一7-ELEVEn獅": "#FF7F27",
+      "台鋼雄鷹": "#009879",
+      "味全龍": "#D60000",
+      "富邦悍將": "#0066CC",
+    };
+
+    const labels = seasonData.rows.map(t => t.team);
+    const winRates = seasonData.rows.map(t => parseFloat(t.winRate));
+    const ctx = canvas.getContext("2d");
+    window.leagueChart = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [{
+          label: "勝率 (Win Rate)",
+          data: winRates,
+          backgroundColor: labels.map(team => teamColors[team] || "#888"),
+          borderColor: labels.map(team => teamColors[team] || "#444"),
+          borderWidth: 2,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          title: { display: true, text: titleText, font: { size: 18 } }
+        },
+        scales: {
+          y: { beginAtZero: true, max: 1, ticks: { stepSize: 0.1 }, title: { display: true, text: "勝率" } },
+          x: { title: { display: true, text: "球隊名稱" } }
+        }
+      }
+    });
+
+    legendContainer.innerHTML = labels.map(team => `
+      <div class="team-toggle" style="display:flex;align-items:center;gap:6px;">
+        <div style="width:18px;height:18px;border-radius:4px;background:${teamColors[team]};border:1px solid #ccc;"></div>
+        <span style="font-weight:600;">${team}</span>
+      </div>
+    `).join('');
+
+    container.style.display = "block";
+  }
+
+  /** Toggle Buttons **/
+  document.addEventListener("DOMContentLoaded", () => {
+    const upperBtn = document.getElementById("toggleUpperChartBtn");
+    const lowerBtn = document.getElementById("toggleLowerChartBtn");
+    const container = document.getElementById("upperSeasonChartContainer");
+    let showUpper = false;
+    let showLower = false;
+
+    upperBtn?.addEventListener("click", () => {
+      showUpper = !showUpper;
+      if (showUpper) {
+        upperBtn.innerHTML = `<i class="ri-eye-off-line"></i> 隱藏上半季戰績圖表`;
+        render_season_chart(upper_season_rank, "2025 上半季 勝率排行圖表");
+      } else {
+        upperBtn.innerHTML = `<i class="ri-bar-chart-line"></i> 顯示上半季戰績圖表`;
+        container.style.display = "none";
+      }
+    });
+
+    lowerBtn?.addEventListener("click", () => {
+      showLower = !showLower;
+      if (showLower) {
+        lowerBtn.innerHTML = `<i class="ri-eye-off-line"></i> 隱藏下半季戰績圖表`;
+        render_season_chart(lower_season_rank, "2025 下半季 勝率排行圖表");
+      } else {
+        lowerBtn.innerHTML = `<i class="ri-bar-chart-line"></i> 顯示下半季戰績圖表`;
+        container.style.display = "none";
+      }
+    });
+  });
+
+  els.refresh.addEventListener('click', loadData);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) clearTimeout(refreshTimer);
+    else loadData();
+  });
+
+  loadData();
+})();
+</script>
+
 
 
   <!-- chat bottt here -->
