@@ -197,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
       </header>
       <div id=\"chatBody\" class=\"chat-body\" role=\"log\" aria-live=\"polite\"></div>
       <div class=\"chat-input\">
-        <input id=\"chatText\" type=\"text\" placeholder=\"輸入訊息，例如：今天有哪些賽事？\" aria-label=\"輸入訊息\" />
+        <input id=\"chatText\" type=\"text\" placeholder=\"快捷鍵:Ctrl+Shift+L 開啟指令面板，/ 聚焦輸入\" aria-label=\"輸入訊息\" />
         <button id=\"chatSend\" class=\"btn btn-accent\" aria-label=\"送出\"><i class=\"ri-send-plane-2-line\"></i></button>
       </div>
     `;
