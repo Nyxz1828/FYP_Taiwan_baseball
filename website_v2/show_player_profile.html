@@ -100,7 +100,27 @@
                 <li><i class="ri-flag-line"></i> 國籍：<strong id="playerNation">JP</strong></li>
               </ul>
               <div class="hero-cta">
-                <button id="versusPlayerBtn" class="btn btn-blue"><i class="ri-user-line"></i> 對戰球員</button>
+                <button id="versusPlayerBtn" class="btn btn-blue">
+                  <i class="ri-user-line"></i> 對戰球員
+                </button>
+
+                <script>
+                  // Get current player from the page URL (?player_name=xxx)
+                  const versus_params = new URLSearchParams(window.location.search);
+                  const versus_playerName = versus_params.get("player_name");
+
+                  const versusBtn = document.getElementById("versusPlayerBtn");
+
+                  versusBtn.addEventListener('click', () => {
+                    if (!versus_playerName) {
+                      alert("無法取得目前球員名稱！");
+                      return;
+                    }
+                    // Open player comparison page with current player name
+                    window.location.href = `player_compare.html?player=${encodeURIComponent(playerName)}`;
+                  });
+                </script>
+
                 <button id="favoritePlayerBtn" class="btn btn-outline"><i class="ri-star-line"></i> 收藏球員</button>
                 <button id="viewStatsBtn" class="btn btn-accent"><i class="ri-bar-chart-2-line"></i> 查看數據</button>
               </div>
