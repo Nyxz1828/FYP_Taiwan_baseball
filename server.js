@@ -393,6 +393,32 @@ app.get('/schedule', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+
+// unlock  below for local usage
+// app.listen(PORT, () => {
+//   console.log(`Server running at http://localhost:${PORT}`);
+// });
+
+const express = require("express");
+const cors = require("cors");
+const puppeteer = require("puppeteer");
+const path = require("path");
+
+ app = express();
+app.use(cors());
+
+// ✅ Serve static front-end files from ./public
+app.use(express.static(path.join(__dirname, "public")));
+
+// ✅ Default route → serve index.html
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
+
+// === keep all your routes here ===
+// e.g. /live, /home, /schedule
+// (no change needed)
+
+// ❌ REMOVE app.listen()
+// ✅ Export app for Vercel
+module.exports = app;
