@@ -1,13 +1,18 @@
-
-
 const express = require('express');
 const cors = require('cors');
 const puppeteer = require('puppeteer');
+const path = require('path'); // ✅ MUST be before any use of `path`
+
 
 const app = express();
 app.use(cors());
 
-const PORT = 3000;
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname))); // Serve index.html, css, js, etc.
+app.listen(3000, () => console.log('http://localhost:3000'));
+
+const PORT = Number(process.env.PORT || 3000);
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
 const BROWSER_OPTIONS = {
   headless: true,
@@ -394,6 +399,94 @@ app.get('/schedule', async (req, res) => {
     res.status(500).send('Scrape failed: ' + err.message);
   }
 });
+
+
+// chatbot server start
+// root/index.html -> index.html
+app.get(['/index.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// --- Chat proxy (OpenAI-compatible schema) ---
+// Configure via env: AI_API_BASE, AI_API_KEY, AI_MODEL
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { messages } = req.body || {};
+    if(!Array.isArray(messages)){
+      return res.status(400).json({ error: 'messages must be an array' });
+    }
+
+    const apiBase = process.env.AI_API_BASE || 'https://api.poe.com/v1';
+    const apiKey = process.env.AI_API_KEY || process.env.OPENAI_API_KEY || '';
+    const model = process.env.AI_MODEL || 'ProBallAI';
+
+    if(!apiKey){
+      return res.status(500).json({ error: 'AI_API_KEY (or OPENAI_API_KEY) is not set' });
+    }
+
+    const resp = await fetch(`${apiBase}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.6
+      })
+    });
+
+    if(!resp.ok){
+      let errText = await resp.text().catch(()=> '');
+      return res.status(resp.status).json({ error: errText || 'Upstream error' });
+    }
+    const data = await resp.json();
+    const reply = data?.choices?.[0]?.message?.content || '';
+    return res.json({ reply });
+  } catch(err){
+    console.error('POST /api/chat error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Minimal connectivity check to Poe/OpenAI-compatible endpoint
+app.get('/api/chat/ping', async (req, res) => {
+  try{
+    const apiBase = process.env.AI_API_BASE || 'https://api.poe.com/v1';
+    const apiKey = process.env.AI_API_KEY || process.env.OPENAI_API_KEY || '';
+    const model = process.env.AI_MODEL || 'ProBallAI';
+    if(!apiKey){ return res.status(500).json({ ok:false, error:'AI_API_KEY not set' }); }
+    const r = await fetch(`${apiBase}/chat/completions`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${apiKey}` },
+      body: JSON.stringify({ model, messages:[{ role:'user', content:'ping' }] })
+    });
+    const ok = r.ok;
+    const body = await r.text().catch(()=> '');
+    res.status(ok ? 200 : r.status).json({ ok, status:r.status, body: body.slice(0,400) });
+  }catch(err){
+    console.error('GET /api/chat/ping error:', err);
+    res.status(500).json({ ok:false, error:'Server error' });
+  }
+});
+
+// Fallback: any non-API GET returns index.html (avoid Cannot GET for client routes)
+app.get(/^\/(?!api\/).*/, (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Diagnostics: identify which server answers
+app.get('/whoami', (req, res) => {
+  res.json({ from: 'website_v3', dir: __dirname, now: new Date().toISOString() });
+});
+
+
+
+
+
+
+//chatbot server end
 
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);

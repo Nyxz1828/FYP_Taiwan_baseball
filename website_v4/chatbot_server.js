@@ -368,7 +368,7 @@ app.get('/home', async (req, res) => {
     res.status(500).send('Scrape failed: ' + err.message);
   }
 });
-
+//clear
 app.get('/schedule', async (req, res) => {
   const now = new Date();
   const year = Number.parseInt(req.query.year, 10) || now.getFullYear();
