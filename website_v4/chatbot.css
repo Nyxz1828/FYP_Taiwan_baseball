@@ -360,7 +360,34 @@ body{
 .chat-title{ font-weight:700; display:flex; align-items:center; gap:8px }
 .chat-body{ max-height: 50vh; overflow:auto; padding:10px; display:flex; flex-direction:column; gap:10px; background: var(--bg-card) }
 .chat-input{ display:flex; gap:8px; padding:8px; border-top:1px solid rgba(255,255,255,.08); background: var(--bg-elev) }
+
+/* Chat quickbar */
+.chat-quickbar{ display:flex; gap:8px; padding:6px 8px; background: var(--bg-card); border-bottom:1px solid rgba(255,255,255,.08); margin-bottom:8px }
+.chat-quickbar .qb-item{ flex:1; display:flex; align-items:center; justify-content:center; gap:6px; text-decoration:none; color: var(--text); border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:6px 8px; background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)) }
+.chat-quickbar .qb-item:hover{ background: rgba(255,255,255,.06) }
+.chat-quickbar .qb-item i{ font-size:18px }
+.chat-quickbar .qb-item span{ font-weight:600; font-size:13px }
+
+.theme-light .chat-quickbar{ border-bottom-color: rgba(2,6,23,.08) }
+.theme-light .chat-quickbar .qb-item{ border-color: rgba(2,6,23,.12) }
+.theme-light .chat-quickbar .qb-item:hover{ background: rgba(2,6,23,.06) }
+
+@media (max-width: 640px){
+  .chat-quickbar{ padding:6px }
+  .chat-quickbar .qb-item span{ font-size:12px }
+}
 .chat-input input{ flex:1; border:1px solid rgba(255,255,255,.12); background: transparent; padding:8px 10px; border-radius: 10px; outline:none }
+/* Quick menu styles */
+#quickMenuBtn{ min-width:36px; height:36px; display:grid; place-items:center; font-size:18px; line-height:1 }
+.quick-menu{ position:fixed; bottom:60px; left:12px; background: var(--bg-card); border:1px solid rgba(255,255,255,.12); border-radius:12px; box-shadow: var(--shadow); padding:6px; width:200px; z-index:3000 }
+.quick-menu[hidden]{ display:none !important }
+.quick-item{ width:100%; text-align:left; display:flex; align-items:center; gap:8px; padding:8px 10px; background:transparent; border:0; color:var(--text); border-radius:8px; cursor:pointer }
+.quick-item:hover{ background: rgba(255,255,255,.06) }
+.quick-item.danger{ color: var(--danger) }
+.quick-divider{ height:1px; background: rgba(255,255,255,.12); margin:6px 4px }
+
+.theme-light .quick-item:hover{ background: rgba(2,6,23,.06) }
+.theme-light .quick-menu{ border-color: rgba(2,6,23,.12) }
 /* Command Palette */
 .cmd-palette{ position: fixed; inset: 0; z-index: 2000; display:grid; place-items:center; background: rgba(0,0,0,.35); backdrop-filter: blur(3px) }
 .cmd-palette[hidden]{ display:none !important }

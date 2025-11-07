@@ -1,4 +1,36 @@
-//const { all } = require("axios");
+// const { all } = require("axios");
+
+// === Get all names from members_details.json ===
+async function getAllNames() {
+  try {
+    const response = await fetch('members_details.json');
+    const data = await response.json();
+
+    let players = [];
+    if (Array.isArray(data)) {
+      players = data;
+    } else if (typeof data === 'object') {
+      for (const key in data) {
+        if (data.hasOwnProperty(key)) {
+          players.push(data[key]);
+        }
+      }
+    }
+
+    // Extract player names
+    const allNames = players
+      .map(player => player.name)
+      .filter(name => name && name.trim() !== "");
+
+    console.log("✅ All Player Names Loaded:", allNames.length);
+    return allNames;
+  } catch (error) {
+    console.error("❌ Failed to load names:", error);
+    return [];
+  }
+}
+
+const allPlayerNamesPromise = getAllNames();
 
 document.addEventListener('DOMContentLoaded', () => {
   const qs = (sel, parent = document) => parent.querySelector(sel);
@@ -12,7 +44,55 @@ document.addEventListener('DOMContentLoaded', () => {
   const input = qs('#chatText');
   const send = qs('#chatSend');
   const close = qs('#chatClose');
+  const quickBtn = qs('#quickMenuBtn');
+  const quickMenu = qs('#quickMenu');
   if(!fab || !panel || !body || !input || !send) return;
+
+  // Resolve chat API endpoint: prefer Cloudflare Worker proxy if configured
+  const CHAT_API = (() => {
+    const meta = document.querySelector('meta[name="poe-proxy"]');
+    const cfg = (window.POE_PROXY_URL || (meta && meta.content) || '').trim();
+    return cfg || '/api/chat';
+  })();
+
+  // Ensure quick menu button exists even if HTML template misses it
+  (function ensureQuickMenuPresence(){
+    try{
+      let btn = quickBtn;
+      let menu = quickMenu;
+      const wrap = input.closest('.chat-input');
+      if(wrap && !btn){
+        btn = document.createElement('button');
+        btn.id = 'quickMenuBtn';
+        btn.className = 'icon-btn';
+        btn.setAttribute('aria-label','快速設定');
+        btn.setAttribute('data-tooltip','快速設定');
+        btn.textContent = '☰';
+        wrap.insertBefore(btn, wrap.firstChild);
+      }
+      if(wrap && !menu){
+        menu = document.createElement('div');
+        menu.id = 'quickMenu';
+        menu.className = 'quick-menu';
+        menu.setAttribute('role','menu');
+        menu.setAttribute('aria-label','快速設定');
+        menu.hidden = true;
+        menu.innerHTML = [
+          '<button class="quick-item" data-action="theme-toggle" role="menuitem"><i class="ri-contrast-2-line"></i> 切換主題</button>',
+          '<button class="quick-item" data-action="open-cmd" role="menuitem"><i class="ri-command-line"></i> 指令面板</button>',
+          '<button class="quick-item" data-action="show-history" role="menuitem"><i class="ri-time-line"></i> 歷史紀錄</button>',
+          '<button class="quick-item" data-action="preferences" role="menuitem"><i class="ri-settings-3-line"></i> 偏好設定</button>',
+          '<div class="quick-divider" aria-hidden="true"></div>',
+          '<button class="quick-item danger" data-action="clear" role="menuitem"><i class="ri-delete-bin-6-line"></i> 清除對話</button>'
+        ].join('');
+        wrap.appendChild(menu);
+      }
+      if(btn && !btn.dataset.cmd){
+        btn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); openCommandPalette(); });
+        btn.dataset.cmd = '1';
+      }
+    }catch(_e){ /* no-op */ }
+  })();
 
   const KEY = 'proball-chat-history-standalone';
   const history = JSON.parse(localStorage.getItem(KEY) || '[]'); 
@@ -49,6 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
   enforceChatInputStyle();
   initHotkeys();
   initSlashSuggest();
+  initQuickMenu();
 
   async function onSend(){
     const text = input.value.trim();
@@ -65,11 +146,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const messages = buildMessagesFromHistory(text);
       const ai = await callChatApi(messages);
-      const reply = (ai && typeof ai === 'string' && ai.trim()) ? ai.trim() : generateReply(text);
+      const reply = (ai && typeof ai === 'string' && ai.trim())
+        ? ai.trim()
+        : await generateReply(text); // ⬅️ 改成 await
       showTypingThenAnimate(reply);
     }catch(e){
       showToast('AI 連線失敗，已使用本地回覆');
-      const reply = generateReply(text);
+      const reply = await generateReply(text); // ⬅️ 改成 await
       showTypingThenAnimate(reply);
     }
   }
@@ -85,11 +168,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 15000);
     try{
-      const res = await fetch('/api/chat', {
+      const isAbsolute = /^https?:\/\//i.test(CHAT_API);
+      const res = await fetch(CHAT_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages }),
-        signal: ctrl.signal
+        signal: ctrl.signal,
+        mode: isAbsolute ? 'cors' : undefined,
+        credentials: 'omit'
       });
       if(!res.ok){
         let errMsg = 'Server error';
@@ -98,7 +184,9 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error(errMsg);
       }
       const data = await res.json();
-      return data?.reply || '';
+      // Support both our backend shape { reply } and OpenAI-compatible { choices: [...] }
+      const fromProxy = data?.choices?.[0]?.message?.content;
+      return (typeof data?.reply === 'string' && data.reply) ? data.reply : (fromProxy || '');
     } finally{
       clearTimeout(t);
     }
@@ -155,78 +243,44 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem(KEY, JSON.stringify(data.slice(-100)));
   }
 
+  // === Main chatbot response logic (改為 async，整合你的需求) ===
+  async function generateReply(q) {
+    const allNames = await allPlayerNamesPromise; // wait for names to load
+    const matchedName = allNames.find(name => q.includes(name));
 
-// === Get all names from members_details.json ===
-async function getAllNames() {
-  try {
-    const response = await fetch('members_details.json');
-    const data = await response.json();
-
-    let players = [];
-    if (Array.isArray(data)) {
-      players = data;
-    } else if (typeof data === 'object') {
-      for (const key in data) {
-        if (data.hasOwnProperty(key)) {
-          players.push(data[key]);
-        }
-      }
+    if (matchedName) {
+      console.log(`🔗 Opening player page for: ${matchedName}`);
+      window.open(
+        `show_player_profile.html?player_name=${encodeURIComponent(matchedName)}`,
+        "_blank"
+      );
+      return `已為您開啟 ${matchedName} 的個人資料頁面。`;
     }
 
-    // Extract player names
-    const allNames = players
-      .map(player => player.name)
-      .filter(name => name && name.trim() !== "");
+    const lower = q.toLowerCase();
 
-    console.log("✅ All Player Names Loaded:", allNames.length);
-    return allNames;
-  } catch (error) {
-    console.error("❌ Failed to load names:", error);
-    return [];
+    if (/賽事|比賽|今日|today/.test(lower)) {
+      window.open("matches.html", "_blank");
+      return '今天重點：Dragons vs Tigers 19:05 台北大巨蛋；另外 2 場例行賽 18:35 開打。';
+    }
+
+    if (/勝率|預測|ai/.test(lower)) {
+      // window.open("model.html", "_blank");
+      return '模型勝率目前預估主隊 64%，信心水準：高。可至「AI 模型預測」區塊查看詳細報告。';
+    }
+
+    if (/球員|stats|數據/.test(lower)) {
+      window.open("players.html", "_blank");
+      return '可至「球員」頁查看生涯/賽季/單場數據，並使用右上角搜尋快速找到球員。';
+    }
+
+    if (/球隊|team/.test(lower)) {
+      window.open("team.html", "_blank");
+      return '可至「球隊」頁查看各隊戰績排行及近期賽事結果。';
+    }
+
+    return '目前僅支援本棒球網站相關內容。你可以詢問：今日賽程、勝率預測、球員數據、模型解釋或網站操作。';
   }
-}
-
-const allPlayerNamesPromise = getAllNames();
-
-// === Main chatbot response logic ===
-async function generateReply(q) {
-  const allNames = await allPlayerNamesPromise; // wait for names to load
-  const matchedName = allNames.find(name => q.includes(name));
-
-  if (matchedName) {
-    console.log(`🔗 Opening player page for: ${matchedName}`);
-    window.open(
-      `show_player_profile.html?player_name=${encodeURIComponent(matchedName)}`,
-      "_blank"
-    );
-    return `已為您開啟 ${matchedName} 的個人資料頁面。`;
-  }
-
-  const lower = q.toLowerCase();
-
-  if (/賽事|比賽|今日|today/.test(lower)) {
-    window.open("matches.html", "_blank");
-    return '今天重點：Dragons vs Tigers 19:05 台北大巨蛋；另外 2 場例行賽 18:35 開打。';
-  }
-
-  if (/勝率|預測|ai/.test(lower)) {
-    // window.open("model.html", "_blank");
-    return '模型勝率目前預估主隊 64%，信心水準：高。可至「AI 模型預測」區塊查看詳細報告。';
-  }
-
-  if (/球員|stats|數據/.test(lower)) {
-    window.open("players.html", "_blank");
-    return '可至「球員」頁查看生涯/賽季/單場數據，並使用右上角搜尋快速找到球員。';
-  }
-
-  if (/球隊|team/.test(lower)) {
-    window.open("team.html", "_blank");
-    return '可至「球隊」頁查看各隊戰績排行及近期賽事結果。';
-  }
-
-  return '目前僅支援本棒球網站相關內容。你可以詢問：今日賽程、勝率預測、球員數據、模型解釋或網站操作。';
-}
-
 
   function enforceChatInputStyle(){
     if(!input) return;
@@ -262,10 +316,19 @@ async function generateReply(q) {
           <button id=\"chatClose\" class=\"icon-btn\" aria-label=\"清除對話\" data-tooltip=\"清除對話\"><i class=\"ri-close-line\"></i></button>
         </div>
       </header>
-      <div id=\"chatBody\" class=\"chat-body\" role=\"log\" aria-live=\"polite\"></div>
+      <div id=\"chatBody\" class=\"chat-body\" role=\"log\" aria-live=\"polite\">\n        <div class=\"chat-quickbar\" role=\"toolbar\" aria-label=\"功能快捷列\">\n          <a href=\"players.html\" target=\"_blank\" class=\"qb-item\" aria-label=\"球員\"><i class=\"ri-user-star-line\"></i><span>球員</span></a>\n          <a href=\"team.html\" target=\"_blank\" class=\"qb-item\" aria-label=\"球隊\"><i class=\"ri-team-line\"></i><span>球隊</span></a>\n          <a href=\"matches.html\" target=\"_blank\" class=\"qb-item\" aria-label=\"戰績\"><i class=\"ri-trophy-line\"></i><span>戰績</span></a>\n        </div>\n      </div>
       <div class=\"chat-input\">
-        <input id=\"chatText\" type=\"text\" placeholder=\"輸入訊息，例如：今天有哪些賽事？\" aria-label=\"輸入訊息\" />
+        <button id=\"quickMenuBtn\" class=\"icon-btn\" aria-label=\"快速設定\" data-tooltip=\"快速設定\">☰</button>
+        <input id=\"chatText\" type=\"text\" placeholder=\"快捷鍵：/ 聚焦、Ctrl+Shift+L 指令面板、Ctrl+Shift+O 開啟、Esc 關閉\" aria-label=\"輸入訊息\" />
         <button id=\"chatSend\" class=\"btn btn-accent\" aria-label=\"送出\"><i class=\"ri-send-plane-2-line\"></i></button>
+        <div id=\"quickMenu\" class=\"quick-menu\" hidden role=\"menu\" aria-label=\"快速設定\">
+          <button class=\"quick-item\" data-action=\"theme-toggle\" role=\"menuitem\"><i class=\"ri-contrast-2-line\"></i> 切換主題</button>
+          <button class=\"quick-item\" data-action=\"open-cmd\" role=\"menuitem\"><i class=\"ri-command-line\"></i> 指令面板</button>
+          <button class=\"quick-item\" data-action=\"show-history\" role=\"menuitem\"><i class=\"ri-time-line\"></i> 歷史紀錄</button>
+          <button class=\"quick-item\" data-action=\"preferences\" role=\"menuitem\"><i class=\"ri-settings-3-line\"></i> 偏好設定</button>
+          <div class=\"quick-divider\" aria-hidden=\"true\"></div>
+          <button class=\"quick-item danger\" data-action=\"clear\" role=\"menuitem\"><i class=\"ri-delete-bin-6-line\"></i> 清除對話</button>
+        </div>
       </div>
     `;
     document.body.appendChild(newChatPanel);
@@ -279,11 +342,17 @@ async function generateReply(q) {
     const i = qs('#chatText');
     const s = qs('#chatSend');
     const c = qs('#chatClose');
+    const qb = qs('#quickMenuBtn');
+    const qm = qs('#quickMenu');
     if(!p || !b || !i || !s) return;
     s.addEventListener('click', onSend);
     i.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ onSend(); } });
     c?.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); closeChatPanel(); });
     enforceChatInputStyle();
+    if(qb && !qb.dataset.cmd){
+      qb.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); openCommandPalette(); });
+      qb.dataset.cmd = '1';
+    }
   }
 
   function showToast(msg){
@@ -339,11 +408,14 @@ async function generateReply(q) {
     if(!pal || !box || !list) return;
     pal.hidden = false; box.value=''; box.focus();
     const entries = [
-      { label:'清除對話', k:'Enter', run:()=> { localStorage.removeItem(KEY); body.innerHTML=''; showToast('已清除對話'); } },
-      { label:'切換 夜間/日間', k:'Enter', run:()=> applyTheme(getCurrentTheme()==='dark'?'light':'dark') },
-      { label:'顯示說明', k:'Enter', run:()=> showTypingThenAnimate(helpText()) },
-      { label:'開啟聊天面板（/open chat）', k:'Enter', run:()=> handleAppCommand('open chat') },
-      { label:'關閉聊天面板（/close chat）', k:'Enter', run:()=> handleAppCommand('close chat') },
+      { label:'清除對話（/clear）', k:'/clear', run:()=> { localStorage.removeItem(KEY); body.innerHTML=''; showToast('已清除對話'); } },
+      { label:'切換 夜間/日間（/theme toggle）', k:'/theme toggle', run:()=> applyTheme(getCurrentTheme()==='dark'?'light':'dark') },
+      { label:'顯示說明（/help）', k:'/help', run:()=> showTypingThenAnimate(helpText()) },
+      { label:'開啟聊天面板（/open chat）', k:'Ctrl+Shift+O', run:()=> handleAppCommand('open chat') },
+      { label:'關閉聊天面板（/close chat）', k:'Esc / Ctrl+Shift+C', run:()=> handleAppCommand('close chat') },
+      { label:'開啟球員頁面', k:'Enter', run:()=> handleAppCommand('open player page') },
+      { label:'開啟球隊頁面', k:'Enter', run:()=> handleAppCommand('open team page') },
+      { label:'開啟賽事頁面', k:'Enter', run:()=> handleAppCommand('open match page') }
     ];
     let idx = 0;
     const render = (q='') => {
@@ -389,11 +461,18 @@ async function generateReply(q) {
     return [
       '可用指令：',
       '- /help 顯示說明',
+      // 移除快捷鍵面板指令顯示
       '- /clear 清除對話',
       '- /open chat 開啟聊天視窗',
       '- /close chat 關閉聊天視窗',
       '- /theme dark|light|toggle 切換主題',
-      '快捷鍵：Ctrl/Cmd+Shift+L 開啟指令面板，/ 聚焦輸入'
+      '',
+      '快捷鍵：',
+      '- / 聚焦輸入',
+      '- Esc 關閉聊天面板',
+      '- Ctrl+Shift+L 開啟指令面板',
+      '- Ctrl+Shift+O 開啟聊天面板',
+      '- Ctrl+Shift+C 關閉聊天面板'
     ].join('\n');
   }
 
@@ -407,6 +486,9 @@ async function generateReply(q) {
       if(cmd === 'help' || cmd === '說明'){
         return { handled:true, message: helpText() };
       }
+      if(cmd === 'shortcuts' || cmd === '快捷鍵'){
+        return { handled:true, message: helpText() };
+      }
       if(cmd === 'clear' || cmd === '清除'){
         localStorage.removeItem(KEY); body.innerHTML=''; return { handled:true, message:'已清除對話' };
       }
@@ -418,13 +500,31 @@ async function generateReply(q) {
         else return { handled:true, message:'用法：/theme dark|light|toggle' };
         return { handled:true, message:`已切換主題為 ${getCurrentTheme()==='dark'?'夜間':'日間'}` };
       }
-      if((cmd === 'open' || cmd === '開啟' || cmd === '打開') && /chat|聊天/.test(arg || '')){
-        openChatPanel();
-        return { handled:true, message:'已開啟聊天視窗' };
+      if((cmd === 'open' || cmd === '開啟' || cmd === '打開')){
+        const a = (arg || '').toLowerCase();
+        if(/chat|聊天/.test(a)){
+          openChatPanel();
+          return { handled:true, message:'已開啟聊天視窗' };
+        }
+        if(/player|球員/.test(a)){
+          window.open('players.html', '_blank');
+          return { handled:true, message:'已開啟球員頁面' };
+        }
+        if(/team|球隊/.test(a)){
+          window.open('team.html', '_blank');
+          return { handled:true, message:'已開啟球隊頁面' };
+        }
+        if(/match|賽事|比賽/.test(a)){
+          window.open('matches.html', '_blank');
+          return { handled:true, message:'已開啟賽事頁面' };
+        }
       }
-      if((cmd === 'close' || cmd === '關閉') && /chat|聊天/.test(arg || '')){
-        closeChatPanel();
-        return { handled:true, message:'已關閉聊天視窗' };
+      if(cmd === 'close' || cmd === '關閉'){
+        const a = (arg || '').toLowerCase();
+        if(/chat|聊天/.test(a)){
+          closeChatPanel();
+          return { handled:true, message:'已關閉聊天視窗' };
+        }
       }
     }catch(e){
       return { handled:true, message:'操作失敗，請稍後再試' };
@@ -440,6 +540,9 @@ async function generateReply(q) {
       { t:'/help', d:'顯示說明' },
       { t:'/clear', d:'清除對話' },
       { t:'/open chat', d:'開啟聊天視窗' },
+      { t:'/open player', d:'開啟球員頁面' },
+      { t:'/open team', d:'開啟球隊頁面' },
+      { t:'/open match', d:'開啟賽事頁面' },
       { t:'/close chat', d:'關閉聊天視窗' },
       { t:'/theme dark', d:'主題：夜間' },
       { t:'/theme light', d:'主題：日間' },
@@ -493,6 +596,44 @@ async function generateReply(q) {
     document.addEventListener('mousemove', (e) => { const el = document.getElementById(menuId); if(!el || el.hidden) return; const a = e.target.closest(`#${menuId} a`); if(!a) return; const i = parseInt(a.dataset.i||'-1',10); if(!isNaN(i) && i !== idx){ idx = i; highlight(); } }, { passive:true });
     document.addEventListener('mousedown', (e) => { const el = document.getElementById(menuId); if(!el || el.hidden) return; const a = e.target.closest(`#${menuId} a`); if(!a) return; e.preventDefault(); const i = parseInt(a.dataset.i||'-1',10); if(!isNaN(i)){ input.value = items[i].t; send.click(); el.hidden = true; } });
   }
+
+  // --- Quick Menu ---
+  function initQuickMenu(){
+    if(quickBtn && !quickBtn.dataset.cmd){
+      quickBtn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); openCommandPalette(); });
+      quickBtn.dataset.cmd = '1';
+    }
+  }
+  function bindQuickMenu(btn, menu){
+    const toggle = () => { const willShow = menu.hidden; menu.hidden = !willShow; if(willShow){ placeMenu(menu); } };
+    const closeM = () => { if(!menu.hidden){ menu.hidden = true; } };
+    btn.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(); });
+    window.addEventListener('resize', ()=>{ if(!menu.hidden) placeMenu(menu); }, { passive:true });
+    document.addEventListener('click', (e)=>{ if(menu.hidden) return; if(!menu.contains(e.target) && e.target !== btn){ closeM(); } });
+    menu.addEventListener('click', (e)=>{
+      const it = e.target.closest('.quick-item'); if(!it) return;
+      const act = it.getAttribute('data-action');
+      if(act === 'theme-toggle'){ applyTheme(getCurrentTheme()==='dark'?'light':'dark'); }
+      if(act === 'open-cmd'){ openCommandPalette(); }
+      if(act === 'show-history'){ showChatHistory(); }
+      if(act === 'preferences'){ showPreferences(); }
+      if(act === 'clear'){ localStorage.removeItem(KEY); body.innerHTML=''; showToast('已清除對話'); }
+      closeM();
+    });
+  }
+  function placeMenu(menu){
+    const btnRect = (quickBtn || menu).getBoundingClientRect();
+    menu.style.position = 'fixed';
+    menu.style.left = `${btnRect.left}px`;
+    menu.style.bottom = `${window.innerHeight - btnRect.top + 8}px`;
+  }
+  function showChatHistory(){
+    const raw = JSON.parse(localStorage.getItem(KEY) || '[]');
+    if(!raw.length){ showToast('目前沒有歷史'); return; }
+    const lines = raw.slice(-12).map(m=>`${m.role==='ai'?'AI':'你'}：${m.text}`).join('\n');
+    showTypingThenAnimate(lines);
+  }
+  function showPreferences(){
+    showTypingThenAnimate('偏好設定：目前支援主題切換。未來可加入更多選項。');
+  }
 });
-
-
