@@ -510,6 +510,347 @@ body.theme-light #chatText {
   border-color: rgba(2,6,23,.12);
 }
 
+/* 抽屜容器：預設隱藏，層級最高 */
+.drawer {
+  position: fixed;
+  inset: 0; /* top:0; right:0; bottom:0; left:0 */
+  z-index: 2000;
+  display: flex;
+  justify-content: flex-end; /* 讓抽屜靠右 */
+  pointer-events: none; /* 沒打開時不阻擋點擊 */
+  visibility: hidden;
+  transition: visibility 0.3s;
+}
+
+/* 當抽屜打開時 */
+.drawer.is-open {
+  pointer-events: auto;
+  visibility: visible;
+}
+
+/* 半透明黑色遮罩 */
+.drawer-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.drawer.is-open .drawer-overlay {
+  opacity: 1;
+}
+
+/* 抽屜面板 */
+.drawer-panel {
+  position: relative;
+  width: 100%;
+  max-width: 480px; /* 抽屜最大寬度 */
+  height: 100%;
+  background: var(--surface-1, #fff);
+  box-shadow: -4px 0 24px rgba(0,0,0,0.15);
+  transform: translateX(100%); /* 預設移出畫面外 */
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer.is-open .drawer-panel {
+  transform: translateX(0); /* 滑入 */
+}
+
+/* 抽屜內部排版 */
+.drawer-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--surface-2, #f8f9fa);
+}
+.drawer-header h2 { margin: 0; font-size: 1.5rem; }
+.drawer-body {
+  flex: 1;
+  overflow-y: auto; /* 內容過長時可捲動 */
+  padding: 24px;
+}
+
+/* --- 抽屜內部美化 --- */
+
+/* 1. 頂部英雄區塊 (Hero Section) */
+.drawer-hero {
+  padding: 24px;
+  color: white; /* 文字強制反白 */
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-radius: 0 0 24px 24px; /* 下方圓角 */
+  margin-bottom: 24px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.drawer-hero img {
+  width: 64px; height: 64px;
+  object-fit: contain;
+  background: white;
+  border-radius: 50%;
+  padding: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.drawer-hero h2 { margin: 0; font-size: 1.75rem; font-weight: 700; }
+.drawer-hero p { margin: 0; opacity: 0.9; font-size: 0.9rem; }
+
+/* 2. 資訊區塊 (Contact Info) */
+.info-section {
+  background: var(--surface-2, #f8f9fa);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(0,0,0,0.1);
+}
+.info-row:last-child { border-bottom: none; }
+.info-row i { color: #666; font-size: 1.2rem; margin-top: 2px; }
+.info-label { font-size: 0.85rem; color: #888; margin-bottom: 2px; }
+.info-val { font-weight: 500; color: #333; line-height: 1.4; }
+
+/* 3. 教練與球員名單 (Roster Grid) */
+.roster-group { margin-bottom: 24px; }
+.roster-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #444;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.roster-title::after {
+  content:''; flex:1; height:1px; background: #ddd;
+}
+
+/* 球員名牌容器 */
+.badges-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* 球員名牌本體 */
+.player-badge {
+  display: inline-flex;
+  align-items: center;
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 99px; /* 膠囊狀 */
+  padding: 4px 12px 4px 4px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  transition: transform 0.1s;
+}
+
+.player-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+  border-color: #ddd;
+}
+
+
+
+/* 背號圓圈 */
+.badge-num {
+  background: #eee;
+  color: #555;
+  font-size: 0.75rem;
+  font-weight: 700;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+}
+
+.badge-name {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #333;
+}
+
+/* --- 教練專用標籤樣式 --- */
+.coach-tag {
+  display: inline-flex;
+  align-items: stretch; /* 讓左右高度一致 */
+  border: 1px solid #e0e0e0;
+  border-radius: 6px; /* 方角圓弧，不要用 99px 膠囊狀 */
+  overflow: hidden; /* 確保背景色不溢出 */
+  background: white;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.coach-tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  border-color: #ccc;
+}
+
+/* 左側：職稱 */
+.coach-role {
+  background: #f5f5f5; /* 預設淺灰，JS 會覆蓋 */
+  color: #555;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid rgba(0,0,0,0.05);
+  white-space: nowrap; /* 強制不換行 */
+}
+
+/* 右側：姓名 */
+.coach-name {
+  padding: 6px 12px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #333;
+  display: flex;
+  align-items: center;
+}
+
+/* --- 讓連結標籤行為正常化 --- */
+
+/* 教練標籤連結優化 */
+a.coach-tag {
+  text-decoration: none; /* 移除底線 */
+  color: inherit;        /* 跟隨父層文字顏色 */
+  cursor: pointer;       /* 滑鼠變手型 */
+  display: inline-flex;  /* 保持原本的排版 */
+}
+
+/* 懸停效果 (原本已有 hover，這邊確保連結狀態下顏色正確) */
+a.coach-tag:hover {
+  border-color: var(--primary-color, #0056b3); /* 假設你有定義主色變數 */
+}
+
+/* 球員名牌連結優化 */
+a.player-badge {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+}
+
+/* 點擊時不要有醜醜的藍色框線 */
+a.coach-tag:focus,
+a.player-badge:focus {
+  outline: 2px solid rgba(0,0,0,0.1);
+  outline-offset: 2px;
+}
+
+/* --- 新增樣式：陣容篩選按鈕 --- */
+.roster-filter {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 4px 12px 4px; /* 預留陰影空間 */
+  margin-bottom: 16px;
+  border-bottom: 1px solid #eee;
+  scrollbar-width: none; /* Firefox 隱藏捲軸 */
+}
+.roster-filter::-webkit-scrollbar { display: none; } /* Chrome 隱藏捲軸 */
+
+.filter-chip {
+  background: #f1f5f9;
+  border: 1px solid transparent;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  color: #64748b;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+.filter-chip:hover { background: #e2e8f0; }
+.filter-chip.active {
+  background: var(--primary-color, #0f172a);
+  color: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* --- 新增樣式：教練與球員名牌 (依照圖片風格) --- */
+.badges-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+/* 教練/球員通用連結樣式 */
+.badge-link {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid #e2e8f0;
+  border-radius: 99px; /* 膠囊狀 */
+  overflow: hidden;
+  background: white;
+  transition: transform 0.1s, box-shadow 0.1s;
+  color: #333;
+}
+.badge-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  border-color: #cbd5e1;
+}
+
+/* 左側：職稱/背號 */
+.badge-label {
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid #f1f5f9;
+  min-width: 32px;
+}
+
+/* 右側：姓名 */
+.badge-name {
+  padding: 6px 12px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+/* --- 卡片上的戰績與近況 --- */
+.team-standing {
+  text-align: center;
+  margin: 8px 0;
+  padding: 4px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+.recent-form {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.form-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+}
+
 /* (reverted) removed highlights, reveal, quick-dock styles */
 
 /* 搜尋建議 */

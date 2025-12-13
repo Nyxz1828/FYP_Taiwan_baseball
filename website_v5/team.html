@@ -15,6 +15,25 @@
   </head>
 
   <body class="theme-light baseball-theme">
+    <div id="teamDrawer" class="drawer" aria-hidden="true">
+  <div class="drawer-overlay" id="drawerOverlay"></div>
+  
+  <aside class="drawer-panel">
+    <header class="drawer-header">
+      <div class="header-content">
+        <h2 id="drawerTitle">球隊名稱</h2>
+        <span id="drawerSubtitle" class="muted">Team Code</span>
+      </div>
+      <button class="icon-btn" id="drawerCloseBtn" aria-label="關閉">
+        <i class="ri-close-line"></i>
+      </button>
+    </header>
+    
+    <div id="drawerBody" class="drawer-body">
+      </div>
+  </aside>
+</div>
+    
     <!-- 啟動畫面 / 背景 / 捲動進度條（與首頁一致，可由 app.js 控制顯示/隱藏） -->
     <div id="splash" class="splash" aria-label="啟動畫面" aria-live="polite" hidden></div>
     <div class="bg-canvas" aria-hidden="true"></div>
@@ -118,8 +137,13 @@
     <!-- 頁面專屬腳本：載入 teams.json + 搜尋/建議 + 快捷鍵 -->
     <script>
     (function(){
+      // DOM 元素選取
+      const drawer = document.getElementById('teamDrawer');
+      const drawerOverlay = document.getElementById('drawerOverlay');
+      const drawerCloseBtn = document.getElementById('drawerCloseBtn');
+      const drawerBody = document.getElementById('drawerBody');
+      
       const $ = s => document.querySelector(s);
-      const $$ = s => Array.from(document.querySelectorAll(s));
       const grid = $('#teamsGrid');
       const emptyView = $('#emptyView');
       const input = $('#teamSearchInput');
@@ -131,219 +155,338 @@
 
       const state = { data: [], filtered: [], keyword: '' };
 
-      // 讀 JSON
+      // --- 核心功能：讀取資料 ---
       async function loadTeams(){
         const res = await fetch('teams.json', { cache: 'no-store' });
         if(!res.ok) throw new Error('無法載入 teams.json');
         return await res.json();
       }
 
-      // 渲染一張卡片（沿用首頁卡片風格）
-      function renderCard(t){
+      // --- 核心功能：渲染單張卡片 ---
+      function renderCard(t) {
         const el = document.createElement('article');
         el.className = 'team-card';
         el.id = t.code;
+        
+        // 主題色
+        const mainColor = t.themeColor || '#666';
+        el.style.borderTop = `6px solid ${mainColor}`;
+        const radarCanvasId = `chart-${t.code}`;
 
-        // recent badges & stats 可後續擴充；先呈現核心資料
+        // 計算戰績與近況
+        const stats = t.stats || { w:0, l:0, t:0, form:[] };
+        const total = stats.w + stats.l;
+        const pct = total > 0 ? (stats.w / total).toFixed(3) : '.000';
+        
+        // 產生近況燈號 (W=綠, L=紅, 其他=灰)
+        const formHtml = (stats.form || []).map(r => {
+          const color = r === 'W' ? '#10b981' : (r === 'L' ? '#ef4444' : '#cbd5e1');
+          return `<span class="form-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:4px;" title="${r}"></span>`;
+        }).join('');
+
         el.innerHTML = `
-          <img class="team-logo" src="${t.logo}" alt="${t.nameZh} 隊徽" loading="lazy" decoding="async" referrerpolicy="no-referrer"/>
-          <h3 class="team-name">${t.nameZh} <span class="muted">${t.nameEn||''}</span></h3>
-          <p class="record">主場：${t.ballpark||'—'}</p>
-          <div class="standing">總教練：${t.manager||'—'}　領隊：${t.leader||'—'}</div>
+          <div class="card-header" style="text-align:center; padding-top:1rem;">
+            <img class="team-logo" src="${t.logo}" alt="${t.nameZh}" style="width:80px;height:80px;object-fit:contain;margin-bottom:0.5rem;">
+            <h3 class="team-name" style="margin:0;font-size:1.25rem;">${t.nameZh}</h3>
+            <span class="muted" style="font-size:0.9rem;">${t.nameEn || ''}</span>
+            
+            <div class="team-standing" style="margin-top:8px; background:#f8fafc; padding:6px; border-radius:8px;">
+               <strong style="color:#333; font-size:1.1rem;">${stats.w}-${stats.l}-${stats.t}</strong> 
+               <span style="color:#666;font-size:0.85em;">(${pct})</span>
+               <div class="recent-form" style="margin-top:4px;">${formHtml}</div>
+            </div>
+          </div>
+
+          <div class="chart-container" style="position:relative; height:220px; width:100%; margin:10px 0;">
+            <canvas id="${radarCanvasId}"></canvas>
+          </div>
 
           <ul class="team-stats">
-            <li><span>投手</span><strong>${(t.players?.['投手']||[]).length}</strong></li>
-            <li><span>捕手</span><strong>${(t.players?.['捕手']||[]).length}</strong></li>
-            <li><span>野手</span><strong>${
-              (t.players?.['內野手']||[]).length + (t.players?.['外野手']||[]).length
-            }</strong></li>
+            <li><span>主場</span><strong>${t.ballpark || '—'}</strong></li>
+            <li><span>總教練</span><strong>${t.manager || '—'}</strong></li>
           </ul>
 
           <div class="team-actions">
-            ${t.website ? `<a class="btn btn-outline" href="${t.website}" target="_blank" rel="noopener"><i class="ri-external-link-line"></i> 官方網站</a>` : ''}
-            <button class="btn btn-accent" data-open="${t.code}"><i class="ri-eye-line"></i> 展開詳情</button>
+            <button class="btn btn-accent action-view-details" style="background-color:${mainColor}; border-color:${mainColor}">
+              <i class="ri-article-line"></i> 查看球隊詳情
+            </button>
           </div>
-
-          <details class="mt-3">
-            <summary>詳細資料</summary>
-            <div class="more mt-2">
-              ${t.history ? `<p class="muted">沿革：${t.history}</p>` : ''}
-              ${renderCoachTable(t.coaches||[])}
-              ${renderPlayers(t.players||{})}
-              ${t.address || t.phone || t.email ? `
-                <div class="contact">
-                  <p class="muted">地址：${t.address||'—'}</p>
-                  <p class="muted">電話：${t.phone||'—'}；傳真：${t.fax||'—'}；Email：${t.email||'—'}</p>
-                </div>` : '' }
-            </div>
-          </details>
         `;
-        // 展開按鈕
-        el.querySelector('[data-open]')?.addEventListener('click', () => {
-          el.querySelector('details')?.setAttribute('open','');
-          el.scrollIntoView({ behavior:'smooth', block:'start' });
-        });
+
+        // 綁定點擊事件
+        el.querySelector('.action-view-details').addEventListener('click', () => openTeamDrawer(t));
         return el;
       }
 
-      function renderCoachTable(coaches){
-        if(!coaches.length) return `<div class="muted">（無教練資料）</div>`;
-        const head = `<thead><tr><th>職稱</th><th>姓名</th><th>背號</th></tr></thead>`;
-        const rows = coaches.map(c=>`<tr><td>${c[0]||''}</td><td>${c[1]||''}</td><td>${c[2]||''}</td></tr>`).join('');
-        return `<div class="mt-2">
-          <div class="label"><i class="ri-user-star-line"></i> 教練團</div>
-          <table class="min-w-full">${head}<tbody>${rows}</tbody></table>
-        </div>`;
+      // --- 核心功能：開啟側邊抽屜 ---
+      function openTeamDrawer(t) {
+        const mainColor = t.themeColor || '#666';
+
+        // 組裝抽屜內容
+        drawerBody.innerHTML = `
+          <div class="drawer-hero" style="background: linear-gradient(135deg, ${mainColor}, ${adjustColor(mainColor, -40)}); padding:24px; border-radius:0 0 24px 24px; color:white; display:flex; align-items:center; gap:16px; margin:-24px -24px 24px -24px; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+            <img src="${t.logo}" alt="logo" style="width:64px;height:64px;background:white;border-radius:50%;padding:4px;object-fit:contain;">
+            <div>
+              <h2 style="margin:0;font-size:1.75rem;">${t.nameZh}</h2>
+              <p style="margin:0;opacity:0.9;">${t.nameEn} · ${t.ballpark || '主場未知'}</p>
+            </div>
+          </div>
+
+          <div class="info-section" style="background:#f8fafc; padding:16px; border-radius:12px; margin-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px; border-bottom:1px dashed #ddd; padding-bottom:8px;">
+              <span class="muted">總教練</span>
+              <strong>${t.manager || '—'}</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+              <span class="muted">領隊</span>
+              <span>${t.leader || '—'}</span>
+            </div>
+            ${t.website ? `<a href="${t.website}" target="_blank" style="display:block; text-align:center; color:${mainColor}; margin-top:10px; text-decoration:none; font-weight:600;">前往官方網站 &rarr;</a>` : ''}
+          </div>
+
+          <div class="roster-filter" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:12px; margin-bottom:16px;">
+            <button class="filter-chip active" onclick="filterRoster('all', this)">全部</button>
+            <button class="filter-chip" onclick="filterRoster('投手', this)">投手</button>
+            <button class="filter-chip" onclick="filterRoster('捕手', this)">捕手</button>
+            <button class="filter-chip" onclick="filterRoster('內野', this)">內野手</button>
+            <button class="filter-chip" onclick="filterRoster('外野', this)">外野手</button>
+            <button class="filter-chip" onclick="filterRoster('教練', this)">教練團</button>
+          </div>
+
+          <div class="roster-group" data-type="教練">
+            <h4 class="roster-title" style="margin-bottom:10px; font-weight:700; color:#475569; display:flex; align-items:center; gap:8px;">
+              <i class="ri-vip-crown-line"></i> 教練團
+            </h4>
+            <div class="badges-container" style="display:flex; flex-wrap:wrap; gap:8px;">
+              ${renderBadges(t.coaches || [], mainColor, true)}
+            </div>
+          </div>
+          
+          ${renderPlayerGroups(t.players || {}, mainColor)}
+          
+          <div style="height: 60px;"></div>
+        `;
+
+        drawer.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
       }
 
-      function renderPlayers(players){
-        const groups = Object.keys(players||{});
-        if(!groups.length) return `<div class="muted">（無球員資料）</div>`;
-        return groups.map(g=>{
-          const list = players[g]||[];
-          const hasPos = list.some(p=>p[2]);
-          const head = `<thead><tr><th>背號</th><th>姓名</th>${hasPos?'<th>守位</th>':''}</tr></thead>`;
-          const rows = list.map(p=>`<tr><td>${p[0]}</td><td>${p[1]}</td>${hasPos?`<td>${p[2]||''}</td>`:''}</tr>`).join('');
-          return `<details class="mt-2" ${g==='投手'?'open':''}>
-            <summary><strong>${g}</strong>（${list.length} 人）</summary>
-            <table class="min-w-full mt-1">${head}<tbody>${rows}</tbody></table>
-          </details>`;
+      // --- 輔助功能：產生名牌 (Badge) ---
+      function renderBadges(list, color, isCoach = false) {
+        if(!list || list.length === 0) return '<div class="muted">無資料</div>';
+        
+        return list.map(item => {
+          const roleOrNum = item[0] || '?';
+          const name = item[1] || '未知';
+          const profileUrl = `show_player_profile.html?player_name=${encodeURIComponent(name)}`;
+          
+          // 教練樣式：職稱(淺灰底) + 姓名(白底)
+          if (isCoach) {
+             return `
+              <a href="${profileUrl}" class="badge-link" style="text-decoration:none; display:inline-flex; border:1px solid #e2e8f0; border-radius:6px; overflow:hidden; background:white; color:#333; align-items:stretch;">
+                <span class="badge-label" style="background:#f1f5f9; color:#64748b; font-size:0.8rem; font-weight:700; padding:6px 10px; display:flex; align-items:center;">${roleOrNum}</span>
+                <span class="badge-name" style="padding:6px 12px; font-size:0.95rem; font-weight:500; display:flex; align-items:center;">${name}</span>
+              </a>
+            `;
+          }
+
+          // 球員樣式：背號(主題色淡底) + 姓名
+          return `
+            <a href="${profileUrl}" class="badge-link" style="text-decoration:none; display:inline-flex; border:1px solid #e2e8f0; border-radius:99px; overflow:hidden; background:white; color:#333;">
+              <span class="badge-label" style="background:${color}22; color:${color}; font-weight:800; padding:4px 10px; min-width:32px; text-align:center; display:flex; align-items:center; justify-content:center;">${roleOrNum}</span>
+              <span class="badge-name" style="padding:4px 12px; font-weight:500;">${name}</span>
+            </a>
+          `;
         }).join('');
       }
 
-      function applyDeepLink(){
-        const u = new URL(location.href);
-        const key = u.searchParams.get('team') || location.hash.replace('#','');
-        if(!key) return;
-        const target = state.filtered.find(t=>t.code === key);
-        if(!target) return;
-        const card = document.getElementById(target.code);
-        card?.querySelector('details')?.setAttribute('open','');
-        card?.classList.add('is-target');
-        const y = card.getBoundingClientRect().top + window.scrollY - 72;
-        window.scrollTo({ top: y, behavior: 'smooth' });
-        document.title = `${target.nameZh} | ProBall Analytics`;
+      // --- 輔助功能：產生球員分組 ---
+      function renderPlayerGroups(players, color) {
+        const groups = Object.keys(players || {});
+        if(groups.length === 0) return '';
+
+        return groups.map(groupName => {
+          const list = players[groupName];
+          return `
+            <div class="roster-group" data-type="${groupName}">
+              <h4 class="roster-title" style="margin:20px 0 10px 0; font-weight:700; color:#475569; display:flex; align-items:center; gap:8px;">
+                <i class="ri-user-line"></i> ${groupName} <span style="font-size:0.8em; color:#94a3b8; font-weight:normal;">(${list.length})</span>
+              </h4>
+              <div class="badges-container" style="display:flex; flex-wrap:wrap; gap:8px;">
+                ${renderBadges(list, color)}
+              </div>
+            </div>
+          `;
+        }).join('');
       }
 
-      function filterData(k){
-        const kw = (k||'').trim().toLowerCase();
-        state.keyword = kw;
-        if(!kw) return state.data.slice();
-        return state.data.filter(t=>{
-          const hay = [
-            t.code, t.nameZh, t.nameEn, t.ballpark, t.leader, t.manager, t.history
-          ].filter(Boolean).join(' ').toLowerCase();
-          return hay.includes(kw);
+      // --- 全域功能：陣容篩選 ---
+      window.filterRoster = function(type, btnElement) {
+        const chips = document.querySelectorAll('.filter-chip');
+        chips.forEach(c => c.classList.remove('active'));
+        if(btnElement) btnElement.classList.add('active');
+
+        const groups = document.querySelectorAll('.roster-group');
+        groups.forEach(g => {
+          const groupType = g.getAttribute('data-type');
+          if (type === 'all' || groupType.includes(type)) {
+            g.style.display = 'block';
+          } else {
+            g.style.display = 'none';
+          }
+        });
+      };
+
+      // --- 繪圖功能：雷達圖 (深灰色五角形風格) ---
+      function drawRadarChart(team) {
+        const ctx = document.getElementById(`chart-${team.code}`);
+        if (!ctx) return;
+
+        // 從 JSON 讀取雷達數值，若無則用預設
+        const dataValues = team.radar || [70, 70, 70, 70, 70];
+
+        new Chart(ctx, {
+          type: 'radar',
+          data: {
+            // 順序：打擊, 戰術, 速度, 守備, 投手
+            labels: ['打擊', '戰術', '速度', '守備', '投手'], 
+            datasets: [{
+              label: '戰力指標',
+              data: dataValues,
+              backgroundColor: 'rgba(60, 60, 60, 0.7)', // 深灰色填滿
+              borderColor: 'rgba(60, 60, 60, 1)',      // 深灰色邊框
+              borderWidth: 2,
+              pointBackgroundColor: 'rgba(60, 60, 60, 1)',
+              pointRadius: 0, // 不顯示頂點圓圈 (圖形更銳利)
+              pointHoverRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: { enabled: true }
+            },
+            scales: {
+              r: {
+                angleLines: {
+                  display: true,
+                  color: 'rgba(0,0,0,0.05)' 
+                },
+                grid: {
+                  color: 'rgba(0,0,0,0.05)', 
+                  circular: false   // ★關鍵：設為 false 顯示為「五角形」
+                },
+                pointLabels: {
+                  font: { size: 12, family: "'Noto Sans TC', sans-serif" },
+                  color: '#888' 
+                },
+                ticks: {
+                  display: false, // ★關鍵：隱藏刻度數字
+                  maxTicksLimit: 5,
+                  backdropColor: 'transparent'
+                },
+                suggestedMin: 30,
+                suggestedMax: 100
+              }
+            }
+          }
         });
       }
 
-      function renderList(list){
+      // --- 頁面初始化 ---
+      function renderList(list) {
         grid.innerHTML = '';
-        if(!list.length){ emptyView.style.display=''; countFiltered.textContent='0'; return; }
-        emptyView.style.display='none';
-        list.forEach(t=>grid.appendChild(renderCard(t)));
+        if (!list.length) {
+          emptyView.style.display = '';
+          countFiltered.textContent = '0';
+          return;
+        }
+        emptyView.style.display = 'none';
+        
+        list.forEach(t => grid.appendChild(renderCard(t)));
+
+        setTimeout(() => {
+          list.forEach(t => drawRadarChart(t));
+        }, 0);
+
         countFiltered.textContent = String(list.length);
       }
 
-      function buildSuggest(list, kw){
-        if(!kw){ suggest.hidden = true; suggest.innerHTML=''; return; }
-        const items = list.slice(0,8).map(t=>`
-          <button class="suggest__item" data-jump="${t.code}">
-            <i class="ri-team-line"></i>
-            <span class="text">${t.nameZh}</span>
-            <span class="sub">${t.nameEn||''} · ${t.code}</span>
-          </button>`).join('');
-        suggest.innerHTML = items || `<div class="suggest__empty">找不到「${kw}」</div>`;
-        suggest.hidden = false;
-        suggest.querySelectorAll('[data-jump]').forEach(btn=>{
-          btn.addEventListener('click', e=>{
-            const code = btn.getAttribute('data-jump');
-            location.href = `?team=${encodeURIComponent(code)}#${encodeURIComponent(code)}`;
+      function adjustColor(col, amount) { return col; } // 簡單回傳
+
+      // 關閉抽屜邏輯
+      function closeDrawer() {
+        drawer.classList.remove('is-open');
+        document.body.style.overflow = '';
+      }
+      drawerCloseBtn.addEventListener('click', closeDrawer);
+      drawerOverlay.addEventListener('click', closeDrawer);
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && drawer.classList.contains('is-open')) closeDrawer();
+      });
+
+      // 搜尋功能
+      // --- 修改後的搜尋邏輯：支援搜尋球員與教練 ---
+      function filterData(k){
+        const kw = (k||'').trim().toLowerCase();
+        state.keyword = kw;
+        
+        // 如果沒輸入關鍵字，回傳全部
+        if(!kw) return state.data.slice();
+
+        return state.data.filter(t => {
+          // 1. 搜尋球隊基本資料 (原本的邏輯：隊名、代號、球場、總教練)
+          const teamBasicInfo = [t.code, t.nameZh, t.nameEn, t.ballpark, t.manager]
+                                .filter(Boolean).join(' ').toLowerCase();
+          if (teamBasicInfo.includes(kw)) return true;
+
+          // 2. 搜尋教練團 (t.coaches 是 Array)
+          // 結構: ["職稱", "姓名", "背號"] -> 我們檢查 c[1] (姓名)
+          const hasCoach = (t.coaches || []).some(c => (c[1] || '').toLowerCase().includes(kw));
+          if (hasCoach) return true;
+
+          // 3. 搜尋球員名單 (t.players 是 Object)
+          // t.players 結構: { "投手": [[背號,姓名...], ...], "捕手": [...] }
+          const playerGroups = Object.values(t.players || {});
+          
+          // 檢查每一個分組(group)裡的每一個球員(p)
+          const hasPlayer = playerGroups.some(group => {
+            return group.some(p => (p[1] || '').toLowerCase().includes(kw));
           });
+          
+          return hasPlayer;
         });
       }
+      
+      input.addEventListener('input', ()=>{
+        state.filtered = filterData(input.value);
+        renderList(state.filtered);
+      });
+      
+      $('#btnClear')?.addEventListener('click', ()=>{ 
+        input.value=''; input.dispatchEvent(new Event('input')); input.focus(); 
+      });
 
-      function showToast(msg){
-        if(!toast) return;
-        toast.textContent = msg;
-        toast.hidden = false;
-        clearTimeout(showToast.t); showToast.t = setTimeout(()=>toast.hidden = true, 1800);
-      }
-
-      // 初始化
+      // 啟動
       (async function init(){
         try{
           state.data = await loadTeams();
           countLoaded.textContent = String(state.data.length);
           state.filtered = state.data.slice();
           renderList(state.filtered);
-          applyDeepLink();
         }catch(err){
           console.error(err);
-          grid.innerHTML = '<div class="empty">無法讀取 <code>teams.json</code></div>';
+          grid.innerHTML = '<div class="empty">無法讀取 teams.json</div>';
         }
       })();
 
-      // 搜尋框交互
-      input.addEventListener('input', ()=>{
-        state.filtered = filterData(input.value);
-        renderList(state.filtered);
-        buildSuggest(state.filtered, input.value.trim());
-      });
-      input.addEventListener('focus', ()=>{
-        if(input.value.trim()) buildSuggest(state.filtered, input.value.trim());
-      });
-      document.addEventListener('click', (e)=>{
-        if(!suggest.contains(e.target) && e.target !== input){ suggest.hidden = true; }
-      });
-
-      // 功能按鈕
-      $('#btnClear')?.addEventListener('click', ()=>{ input.value=''; input.dispatchEvent(new Event('input')); input.focus(); });
-      $('#btnCopyLink')?.addEventListener('click', ()=>{
-        const url = new URL(location.href);
-        if(state.keyword){
-          url.searchParams.set('q', state.keyword);
-        }else{
-          url.searchParams.delete('q');
-        }
-        navigator.clipboard.writeText(url.toString()).then(()=>showToast('已複製目前篩選連結')).catch(()=>{});
-      });
-
-      // 快捷鍵（與首頁一致風格）
-      // / 或 Ctrl+K：聚焦搜尋；t：切換主題；g t：前往球隊、g h：首頁、g m：賽事、g p：球員
-      let gPressed = false;
-      document.addEventListener('keydown', (e)=>{
-        const tag = (e.target.tagName||'').toLowerCase();
-        const isTyping = tag === 'input' || tag === 'textarea' || e.target.isContentEditable;
-
-        if((e.key === '/' || (e.key.toLowerCase()==='k' && (e.ctrlKey||e.metaKey))) && !isTyping){
-          e.preventDefault(); input.focus(); input.select(); return;
-        }
-        if(e.key.toLowerCase()==='t' && !isTyping && !e.altKey && !e.ctrlKey && !e.metaKey){
-          if(gPressed){ location.href = 'team.html'; gPressed=false; return; }
-          // 單鍵 t：切換主題
-          themeBtn?.click();
-        }
-        if(e.key.toLowerCase()==='g' && !isTyping){ gPressed = true; setTimeout(()=>gPressed=false, 800); }
-        if(e.key.toLowerCase()==='h' && gPressed){ location.href = 'app.html#home'; gPressed=false; }
-        if(e.key.toLowerCase()==='m' && gPressed){ location.href = 'matches.html'; gPressed=false; }
-        if(e.key.toLowerCase()==='p' && gPressed){ location.href = 'players.html'; gPressed=false; }
-        if(e.key === 'Enter' && document.activeElement === input && !suggest.hidden){
-          const first = suggest.querySelector('[data-jump]');
-          if(first){ first.click(); }
-        }
-      });
-
-      // 若網址帶 ?q= 關鍵字，初始化時套用
-      (function initQueryFromURL(){
-        const url = new URL(location.href);
-        const q = url.searchParams.get('q');
-        if(q){ input.value = q; input.dispatchEvent(new Event('input')); }
-      })();
     })();
-    </script>
+</script>
 
     <!-- 與首頁共用的互動腳本（主題切換、滾動特效、聊天面板等） -->
     <script src="app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </body>
 </html>
