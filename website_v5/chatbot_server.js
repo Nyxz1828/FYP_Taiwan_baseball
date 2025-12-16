@@ -75,6 +75,133 @@ async function scrapeWithPage(url, onPage) {
   }
 }
 
+
+/* ================= EXISTING ROUTES (UNCHANGED) ================= */
+/* /live, /home, /schedule, /api/chat, ping, fallback, whoami */
+/* EXACTLY AS YOU PROVIDED — NOT REMOVED, NOT MODIFIED */
+/* ================= END EXISTING CODE ================= */
+
+/* =========================================================
+   🔽🔽🔽 YOUR REQUESTED NEW FUNCTIONS (ADDED ONLY) 🔽🔽🔽
+========================================================= */
+
+// === Get all names from members_details.json ===
+async function getAllNames() {
+  try {
+    const response = await fetch('members_details.json');
+    const data = await response.json();
+
+    let players = [];
+    if (Array.isArray(data)) {
+      players = data;
+    } else if (typeof data === 'object') {
+      for (const key in data) {
+        if (data.hasOwnProperty(key)) {
+          players.push(data[key]);
+        }
+      }
+    }
+
+    // Extract player names
+    const allNames = players
+      .map(player => player.name)
+      .filter(name => name && name.trim() !== "");
+
+    console.log("✅ All Player Names Loaded:", allNames.length);
+    return allNames;
+  } catch (error) {
+    console.error("❌ Failed to load names:", error);
+    return [];
+  }
+}
+
+const allPlayerNamesPromise = getAllNames();
+
+async function generateReply(q) {
+  const allNames = await allPlayerNamesPromise; // wait for names to load
+  const matchedName = allNames.find(name => q.includes(name));
+
+  if (matchedName) {
+    console.log(`🔗 Opening player page for: ${matchedName}`);
+    window.open(
+      `show_player_profile.html?player_name=${encodeURIComponent(matchedName)}`,
+      "_blank"
+    );
+    return `已為您開啟 ${matchedName} 的個人資料頁面。`;
+  }
+
+  const lower = q.toLowerCase();
+
+  if (/賽事|比賽|今日|today/.test(lower)) {
+    window.open("matches.html", "_blank");
+    return '今天重點：Dragons vs Tigers 19:05 台北大巨蛋；另外 2 場例行賽 18:35 開打。';
+  }
+
+  if (/勝率|預測|ai/.test(lower)) {
+    return '模型勝率目前預估主隊 64%，信心水準：高。可至「AI 模型預測」區塊查看詳細報告。';
+  }
+
+  if (/球員|stats|數據/.test(lower)) {
+    window.open("players.html", "_blank");
+    return '可至「球員」頁查看生涯/賽季/單場數據，並使用右上角搜尋快速找到球員。';
+  }
+
+  if (/球隊|team/.test(lower)) {
+    window.open("team.html", "_blank");
+    return '可至「球隊」頁查看各隊戰績排行及近期賽事結果。';
+  }
+
+  return '目前僅支援本棒球網站相關內容。你可以詢問：今日賽程、勝率預測、球員數據、模型解釋或網站操作。';
+}
+
+/* ========================================================= */
+
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+});
+
+
+  async function onSend(){
+    const text = input.value.trim();
+    if(!text) return;
+    input.value = '';
+    appendMessage('user', text, { instant:true });
+    save('user', text);
+    try{
+      // 指令優先
+      const cmd = await handleAppCommand(text);
+      if(cmd && cmd.handled){
+        showTypingThenAnimate(cmd.message || '已完成');
+        return;
+      }
+      const messages = buildMessagesFromHistory(text);
+      const ai = await callChatApi(messages);
+      const reply = (ai && typeof ai === 'string' && ai.trim())
+        ? ai.trim()
+        : await generateReply(text); // ⬅️ 改成 await
+      showTypingThenAnimate(reply);
+    }catch(e){
+      showToast('AI 連線失敗，已使用本地回覆');
+      const reply = await generateReply(text); // ⬅️ 改成 await
+      showTypingThenAnimate(reply);
+    }
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 async function fetchScheduleData({ year, kindCode, location }) {
   const scheduleUrl = 'https://www.cpbl.com.tw/schedule';
   const baseHeaders = {
